@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +25,9 @@ import {
 } from "lucide-react";
 import { useAuth, MOCK_CLASSES, MOCK_SECTIONS } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { AssignmentManager } from "@/components/teacher/AssignmentManager";
+import { StudentActivityTracker } from "@/components/teacher/StudentActivityTracker";
+import { useAssignments } from "@/contexts/AssignmentContext";
 
 // Mock student data
 const MOCK_STUDENTS = [
@@ -94,10 +96,15 @@ const MOCK_STUDENTS = [
 const TeacherDashboard = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { getAssignmentsForTeacher, getProgressForAssignment } = useAssignments();
   const [selectedClass, setSelectedClass] = useState(user?.classes[0] || '');
   const [selectedSection, setSelectedSection] = useState(user?.sections[0] || '');
   const [sortBy, setSortBy] = useState('overall');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  // Get assignments data from context
+  const teacherAssignments = getAssignmentsForTeacher(user?.classes || [], user?.sections || []);
+  const activeAssignments = teacherAssignments.filter(a => a.status === 'published');
 
   // Filter students based on teacher's classes/sections and selected filters
   const filteredStudents = MOCK_STUDENTS.filter(student => 
@@ -183,10 +190,10 @@ const TeacherDashboard = () => {
           </Card>
           <Card>
             <CardContent className="flex items-center p-6">
-              <Trophy className="h-8 w-8 text-yellow-600 mr-3" />
+              <BookOpen className="h-8 w-8 text-green-600 mr-3" />
               <div>
-                <p className="text-2xl font-bold">{Math.round(filteredStudents.reduce((sum, s) => sum + s.overall, 0) / filteredStudents.length || 0)}%</p>
-                <p className="text-sm text-muted-foreground">Avg Performance</p>
+                <p className="text-2xl font-bold">{activeAssignments.length}</p>
+                <p className="text-sm text-muted-foreground">Active Assignments</p>
               </div>
             </CardContent>
           </Card>
@@ -210,15 +217,78 @@ const TeacherDashboard = () => {
           </Card>
         </div>
 
-        <Tabs defaultValue="performance" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="performance">Student Performance</TabsTrigger>
-            <TabsTrigger value="reflex">Reflex Challenges</TabsTrigger>
-            <TabsTrigger value="stories">Story Builder</TabsTrigger>
-            <TabsTrigger value="puzzles">Word Puzzles</TabsTrigger>
+        <Tabs defaultValue="assignments" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="assignments">Assignment Manager</TabsTrigger>
+            <TabsTrigger value="activity">Student Activity</TabsTrigger>
+            <TabsTrigger value="performance">Performance Analytics</TabsTrigger>
+            <TabsTrigger value="reflex">Quick Create</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
-          {/* Student Performance Tab */}
+          {/* Assignment Manager Tab */}
+          <TabsContent value="assignments" className="space-y-6">
+            {/* Filters */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Filter className="h-5 w-5" />
+                  Class & Section Selection
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Class</Label>
+                    <Select value={selectedClass} onValueChange={setSelectedClass}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Class" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all-classes">All Classes</SelectItem>
+                        {user?.classes.map(className => (
+                          <SelectItem key={className} value={className}>
+                            {className}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Section</Label>
+                    <Select value={selectedSection} onValueChange={setSelectedSection}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Section" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all-sections">All Sections</SelectItem>
+                        {user?.sections.map(section => (
+                          <SelectItem key={section} value={section}>
+                            Section {section}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <AssignmentManager 
+              selectedClass={selectedClass}
+              selectedSection={selectedSection}
+            />
+          </TabsContent>
+
+          {/* Student Activity Tab */}
+          <TabsContent value="activity" className="space-y-6">
+            <StudentActivityTracker 
+              selectedClass={selectedClass}
+              selectedSection={selectedSection}
+            />
+          </TabsContent>
+
+          {/* Performance Analytics Tab */}
           <TabsContent value="performance" className="space-y-6">
             {/* Filters */}
             <Card>
@@ -410,7 +480,7 @@ const TeacherDashboard = () => {
             </Card>
           </TabsContent>
 
-          {/* Reflex Challenges Tab */}
+          {/* Quick Create Tab */}
           <TabsContent value="reflex" className="space-y-6">
             <Card>
               <CardHeader>
@@ -469,136 +539,42 @@ const TeacherDashboard = () => {
             </Card>
           </TabsContent>
 
-          {/* Story Builder Tab */}
-          <TabsContent value="stories" className="space-y-6">
+          {/* Settings Tab */}
+          <TabsContent value="settings" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5" />
-                  Create Story Assignment
-                </CardTitle>
+                <CardTitle>Dashboard Settings</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <CardContent>
+                <div className="space-y-4">
                   <div>
-                    <Label>Target Class</Label>
-                    <Select value={selectedClass} onValueChange={setSelectedClass}>
+                    <Label>Default View</Label>
+                    <Select defaultValue="assignments">
                       <SelectTrigger>
-                        <SelectValue placeholder="Select Class" />
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {user?.classes.map(className => (
-                          <SelectItem key={className} value={className}>
-                            {className}
-                          </SelectItem>
-                        ))}
+                        <SelectItem value="assignments">Assignment Manager</SelectItem>
+                        <SelectItem value="activity">Student Activity</SelectItem>
+                        <SelectItem value="performance">Performance Analytics</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label>Target Section</Label>
-                    <Select value={selectedSection} onValueChange={setSelectedSection}>
+                    <Label>Auto-refresh Interval</Label>
+                    <Select defaultValue="30">
                       <SelectTrigger>
-                        <SelectValue placeholder="Select Section" />
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {user?.sections.map(section => (
-                          <SelectItem key={section} value={section}>
-                            Section {section}
-                          </SelectItem>
-                        ))}
+                        <SelectItem value="15">15 seconds</SelectItem>
+                        <SelectItem value="30">30 seconds</SelectItem>
+                        <SelectItem value="60">1 minute</SelectItem>
+                        <SelectItem value="300">5 minutes</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
-                <div>
-                  <Label>Story Title</Label>
-                  <Input
-                    placeholder="Enter story title..."
-                    value={storyTitle}
-                    onChange={(e) => setStoryTitle(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label>Story Content</Label>
-                  <Textarea
-                    placeholder="Enter the story content here..."
-                    value={storyContent}
-                    onChange={(e) => setStoryContent(e.target.value)}
-                    rows={6}
-                  />
-                </div>
-                <Button onClick={handleCreateStory} className="w-full">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Story
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Word Puzzles Tab */}
-          <TabsContent value="puzzles" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Puzzle className="h-5 w-5" />
-                  Create Word Puzzle
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Target Class</Label>
-                    <Select value={selectedClass} onValueChange={setSelectedClass}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Class" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {user?.classes.map(className => (
-                          <SelectItem key={className} value={className}>
-                            {className}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Target Section</Label>
-                    <Select value={selectedSection} onValueChange={setSelectedSection}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Section" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {user?.sections.map(section => (
-                          <SelectItem key={section} value={section}>
-                            Section {section}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div>
-                  <Label>Puzzle Title</Label>
-                  <Input
-                    placeholder="Enter puzzle title..."
-                    value={puzzleTitle}
-                    onChange={(e) => setPuzzleTitle(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label>Words (comma-separated)</Label>
-                  <Textarea
-                    placeholder="Enter words separated by commas (e.g., apple, banana, cherry)..."
-                    value={puzzleWords}
-                    onChange={(e) => setPuzzleWords(e.target.value)}
-                    rows={3}
-                  />
-                </div>
-                <Button onClick={handleCreatePuzzle} className="w-full">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Puzzle
-                </Button>
               </CardContent>
             </Card>
           </TabsContent>

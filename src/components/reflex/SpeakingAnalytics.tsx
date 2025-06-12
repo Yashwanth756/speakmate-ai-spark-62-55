@@ -1,9 +1,10 @@
+
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Trophy, Target, Zap, Clock, BarChart3, TrendingUp, Star } from "lucide-react";
-import { SessionData } from "@/types/reflex";
+import { SessionData } from "@/pages/Reflex";
 
 interface SpeakingAnalyticsProps {
   sessionData: SessionData;

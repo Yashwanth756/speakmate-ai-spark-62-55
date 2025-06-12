@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,8 +54,8 @@ const Register = () => {
         email,
         password,
         role: 'student',
-        class: selectedClass,
-        section: selectedSection
+        classes: [selectedClass],
+        sections: [selectedSection]
       });
 
       if (success) {

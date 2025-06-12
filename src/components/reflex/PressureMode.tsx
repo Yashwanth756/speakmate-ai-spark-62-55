@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Mic, MicOff, Skull, Zap, Clock } from "lucide-react";
-import { SessionData } from "@/types/reflex";
+import { SessionData } from "@/pages/Reflex";
 
 interface PressureModeProps {
   onSessionEnd: (data: SessionData) => void;

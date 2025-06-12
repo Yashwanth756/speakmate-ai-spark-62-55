@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -138,7 +139,7 @@ export default function Story() {
       )}
 
       <StoryDisplay 
-        assignmentPrompt={assignment?.content || "Default story prompt for practice"}
+        prompt={assignment?.content || "Default story prompt for practice"}
         onComplete={isAssignmentMode ? handleStoryComplete : undefined}
         isAssignment={isAssignmentMode}
       />

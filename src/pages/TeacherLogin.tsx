@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +24,7 @@ const TeacherLogin = () => {
     setIsLoading(true);
     
     try {
-      const success = await login(email, password);
+      const success = await login(email, password, 'teacher');
       
       if (success) {
         toast({

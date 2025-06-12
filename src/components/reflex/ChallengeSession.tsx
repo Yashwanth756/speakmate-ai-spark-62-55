@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -5,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Mic, MicOff, Clock, ArrowLeft, Play, Square } from "lucide-react";
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { getLanguageFeedback } from "@/lib/gemini-api";
-import { SessionData } from "@/types/reflex";
+import { SessionData } from "@/pages/Reflex";
 
 interface Challenge {
   id: string;
@@ -18,23 +19,10 @@ interface Challenge {
 }
 
 interface ChallengeSessionProps {
-  onComplete?: (score: number, timeSpent: number) => void;
-  isAssignment?: boolean;
-  assignmentPrompt?: string;
-  timeLimit?: number;
-  onBack?: () => void;
+  challenge: Challenge;
+  onSessionComplete: (data: SessionData) => void;
+  onBack: () => void;
 }
-
-// Default challenge configuration
-const defaultChallenge: Challenge = {
-  id: "ai-debate",
-  title: "AI Debate Challenge",
-  description: "Express your thoughts clearly and persuasively",
-  icon: "🗣️",
-  skill: "Argumentation & Critical Thinking",
-  color: "bg-red-500",
-  difficulty: "Advanced"
-};
 
 const challengeQuestions = {
   "ai-debate": [
@@ -96,14 +84,12 @@ const challengeQuestions = {
 };
 
 export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
-  onComplete,
-  isAssignment = false,
-  assignmentPrompt,
-  timeLimit = 300,
+  challenge,
+  onSessionComplete,
   onBack
 }) => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(timeLimit);
+  const [timeLeft, setTimeLeft] = useState(30);
   const [isRecording, setIsRecording] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [responses, setResponses] = useState<any[]>([]);
@@ -114,16 +100,9 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
 
   const { transcript, startListening, stopListening, resetTranscript, isListening } = useSpeechRecognition();
 
-  // Use the default challenge
-  const challenge = defaultChallenge;
   const questions = challengeQuestions[challenge.id as keyof typeof challengeQuestions] || [];
   const totalQuestions = 5;
   const timePerQuestion = challenge.id === "quick-fire" ? 10 : 30;
-
-  // Default onBack function if not provided
-  const handleBack = onBack || (() => {
-    window.history.back();
-  });
 
   useEffect(() => {
     setTimeLeft(timePerQuestion);
@@ -230,7 +209,7 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
     const totalTime = (Date.now() - sessionStartTime) / 1000;
     
     try {
-      // Create comprehensive analysis prompt with all questions and responses
+      // Create comprehensive analysis prompt with all questions and answers
       const comprehensiveAnalysisPrompt = `
         Analyze this complete English speaking session with ${totalQuestions} questions and responses.
         Provide detailed analysis for each response and overall performance.
@@ -295,7 +274,7 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
       };
 
       console.log("Session analysis complete, transitioning to results...");
-      onComplete && onComplete(overallScores.finalScore, totalTime);
+      onSessionComplete(sessionData);
     } catch (error) {
       console.error("Error generating comprehensive analysis:", error);
       // Provide fallback analysis
@@ -315,7 +294,7 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
         }
       };
       
-      onComplete && onComplete(Math.round(averageAccuracy), totalTime);
+      onSessionComplete(sessionData);
     }
   };
 
@@ -393,7 +372,7 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
         
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
-          <Button onClick={handleBack} variant="outline" size="sm">
+          <Button onClick={onBack} variant="outline" size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>

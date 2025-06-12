@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Bell, Search, Menu, LogOut, Settings, User, Moon, Sun } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface DashboardHeaderProps {
   onMenuClick?: () => void;
@@ -21,12 +22,17 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ onMenuClick, userName = "User", userEmail = "user@echo.ai" }: DashboardHeaderProps) {
   const navigate = useNavigate();
+  const { logout, user } = useAuth();
   const [isDark, setIsDark] = useState(false);
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userSession');
-    navigate('/login');
+    logout();
+    // Redirect based on user role or to general login
+    if (user?.role === 'teacher') {
+      navigate('/teacher/login');
+    } else {
+      navigate('/login');
+    }
   };
 
   const toggleTheme = () => {
@@ -62,6 +68,11 @@ export function DashboardHeader({ onMenuClick, userName = "User", userEmail = "u
             <h1 className="text-xl font-playfair font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               Echo.ai
             </h1>
+            {user?.role && (
+              <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full capitalize">
+                {user.role}
+              </span>
+            )}
           </div>
         </div>
 
@@ -112,6 +123,9 @@ export function DashboardHeader({ onMenuClick, userName = "User", userEmail = "u
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">{userName}</p>
                   <p className="text-xs leading-none text-muted-foreground">{userEmail}</p>
+                  {user?.role && (
+                    <p className="text-xs leading-none text-primary capitalize">{user.role} Account</p>
+                  )}
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />

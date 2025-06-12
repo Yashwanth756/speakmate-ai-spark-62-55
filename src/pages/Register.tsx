@@ -3,17 +3,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link, useNavigate } from "react-router-dom";
 import { Volume2, VolumeX, ArrowLeft } from "lucide-react";
-import confetti from 'canvas-confetti';
+import { useAuth, MOCK_CLASSES, MOCK_SECTIONS } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const Register = () => {
-  const [name, setName] = useState("");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [age, setAge] = useState("");
+  const [selectedClass, setSelectedClass] = useState("");
+  const [selectedSection, setSelectedSection] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [hoveredElement, setHoveredElement] = useState<string | null>(null);
+  
   const navigate = useNavigate();
+  const { register } = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -27,14 +34,52 @@ const Register = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    confetti({
-      particleCount: 150,
-      spread: 80,
-      origin: { y: 0.6 }
-    });
-    setTimeout(() => navigate('/'), 1500);
+    
+    if (!selectedClass || !selectedSection) {
+      toast({
+        title: "Missing Information",
+        description: "Please select both class and section.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const success = await register({
+        fullName,
+        email,
+        password,
+        role: 'student',
+        classes: [selectedClass],
+        sections: [selectedSection]
+      });
+
+      if (success) {
+        toast({
+          title: "Account Created Successfully!",
+          description: "Please log in to continue.",
+        });
+        setTimeout(() => navigate('/login'), 1500);
+      } else {
+        toast({
+          title: "Registration Failed",
+          description: "Email already exists. Please try a different email.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Registration Failed",
+        description: "An error occurred. Please try again.",
+        variant: "destructive"
+      });
+    }
+
+    setIsLoading(false);
   };
 
   const handleElementHover = (element: string) => {
@@ -84,11 +129,7 @@ const Register = () => {
             hoveredElement === 'sound' ? 'animate-pulse' : ''
           }`}
         >
-          {true ? (
-            <VolumeX className="h-6 w-6 text-primary" />
-          ) : (
-            <Volume2 className="h-6 w-6 text-primary" />
-          )}
+          <VolumeX className="h-6 w-6 text-primary" />
         </Button>
       </div>
 
@@ -97,41 +138,24 @@ const Register = () => {
         <h1 className="text-5xl font-playfair font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent animate-bounce-light">
           Echo.ai
         </h1>
-        <p className="text-muted-foreground mt-2">Join our fun learning adventure!</p>
+        <p className="text-muted-foreground mt-2">Create Your Student Account</p>
       </div>
 
       <Card className="w-full max-w-md animate-fade-in shadow-xl border-primary/20 hover:border-primary/50 transition-all duration-500">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl text-center bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            Create Your Account
+            Student Registration
           </CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-primary">Your Name</Label>
+              <Label htmlFor="fullName" className="text-primary">Full Name</Label>
               <Input
-                id="name"
-                placeholder="Enter your name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onFocus={() => {}}
-                className="border-primary/20 focus:border-primary"
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="age" className="text-primary">Your Age</Label>
-              <Input
-                id="age"
-                type="number"
-                min="5"
-                max="18"
-                placeholder="How old are you?"
-                value={age}
-                onChange={(e) => setAge(e.target.value)}
-                onFocus={() => {}}
+                id="fullName"
+                placeholder="Enter your full name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
                 className="border-primary/20 focus:border-primary"
                 required
               />
@@ -145,7 +169,6 @@ const Register = () => {
                 placeholder="your.email@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                onFocus={() => {}}
                 className="border-primary/20 focus:border-primary"
                 required
               />
@@ -158,10 +181,41 @@ const Register = () => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                onFocus={() => {}}
                 className="border-primary/20 focus:border-primary"
                 required
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="class" className="text-primary">Class</Label>
+              <Select value={selectedClass} onValueChange={setSelectedClass} required>
+                <SelectTrigger className="border-primary/20 focus:border-primary">
+                  <SelectValue placeholder="Select your class" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MOCK_CLASSES.map((className) => (
+                    <SelectItem key={className} value={className}>
+                      {className}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="section" className="text-primary">Section</Label>
+              <Select value={selectedSection} onValueChange={setSelectedSection} required>
+                <SelectTrigger className="border-primary/20 focus:border-primary">
+                  <SelectValue placeholder="Select your section" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MOCK_SECTIONS.map((section) => (
+                    <SelectItem key={section} value={section}>
+                      Section {section}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             
             <Button
@@ -169,8 +223,9 @@ const Register = () => {
               className="w-full bg-primary hover:bg-primary-dark hover:scale-105 transition-all duration-300"
               onMouseEnter={() => handleElementHover('register')}
               onMouseLeave={() => setHoveredElement(null)}
+              disabled={isLoading}
             >
-              Create Account
+              {isLoading ? "Creating Account..." : "Create Student Account"}
             </Button>
           </form>
         </CardContent>
@@ -184,6 +239,15 @@ const Register = () => {
               onMouseLeave={() => setHoveredElement(null)}
             >
               Log in
+            </Link>
+          </div>
+          <div className="text-center w-full">
+            <span className="text-muted-foreground">Are you a teacher? </span>
+            <Link
+              to="/teacher/register"
+              className="text-primary hover:text-primary-dark hover:underline transition-colors"
+            >
+              Register as Teacher
             </Link>
           </div>
         </CardFooter>

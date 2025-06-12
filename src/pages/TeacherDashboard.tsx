@@ -101,8 +101,8 @@ const TeacherDashboard = () => {
 
   // Filter students based on teacher's classes/sections and selected filters
   const filteredStudents = MOCK_STUDENTS.filter(student => 
-    (!selectedClass || student.class === selectedClass) &&
-    (!selectedSection || student.section === selectedSection) &&
+    (!selectedClass || selectedClass === 'all-classes' || student.class === selectedClass) &&
+    (!selectedSection || selectedSection === 'all-sections' || student.section === selectedSection) &&
     user?.classes.includes(student.class) &&
     user?.sections.includes(student.section)
   ).sort((a, b) => {
@@ -130,7 +130,7 @@ const TeacherDashboard = () => {
     
     toast({
       title: "Reflex Challenge Created!",
-      description: `Challenge assigned to ${selectedClass} - Section ${selectedSection}`,
+      description: `Challenge assigned to ${selectedClass === 'all-classes' ? 'All Classes' : selectedClass} - Section ${selectedSection === 'all-sections' ? 'All' : selectedSection}`,
     });
     setReflexQuestion('');
   };
@@ -140,7 +140,7 @@ const TeacherDashboard = () => {
     
     toast({
       title: "Story Created!",
-      description: `"${storyTitle}" assigned to ${selectedClass} - Section ${selectedSection}`,
+      description: `"${storyTitle}" assigned to ${selectedClass === 'all-classes' ? 'All Classes' : selectedClass} - Section ${selectedSection === 'all-sections' ? 'All' : selectedSection}`,
     });
     setStoryTitle('');
     setStoryContent('');
@@ -151,7 +151,7 @@ const TeacherDashboard = () => {
     
     toast({
       title: "Word Puzzle Created!",
-      description: `"${puzzleTitle}" assigned to ${selectedClass} - Section ${selectedSection}`,
+      description: `"${puzzleTitle}" assigned to ${selectedClass === 'all-classes' ? 'All Classes' : selectedClass} - Section ${selectedSection === 'all-sections' ? 'All' : selectedSection}`,
     });
     setPuzzleTitle('');
     setPuzzleWords('');
@@ -237,7 +237,7 @@ const TeacherDashboard = () => {
                         <SelectValue placeholder="All Classes" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All Classes</SelectItem>
+                        <SelectItem value="all-classes">All Classes</SelectItem>
                         {user?.classes.map(className => (
                           <SelectItem key={className} value={className}>
                             {className}
@@ -253,7 +253,7 @@ const TeacherDashboard = () => {
                         <SelectValue placeholder="All Sections" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All Sections</SelectItem>
+                        <SelectItem value="all-sections">All Sections</SelectItem>
                         {user?.sections.map(section => (
                           <SelectItem key={section} value={section}>
                             Section {section}

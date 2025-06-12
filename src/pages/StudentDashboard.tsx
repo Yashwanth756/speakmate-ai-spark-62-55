@@ -1,656 +1,246 @@
-
-import React from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
-  Flame, 
-  Clock, 
-  Trophy, 
-  Star, 
-  Zap, 
   BookOpen, 
-  Puzzle,
-  TrendingUp,
-  Award,
-  Target,
-  Send,
-  Play,
-  Lock,
-  AlertCircle
+  Zap, 
+  Puzzle, 
+  Clock, 
+  AlertCircle, 
+  CheckCircle,
+  Lock
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
 import { useAssignments } from "@/contexts/AssignmentContext";
+import { Link } from 'react-router-dom';
 
-const StudentDashboard = () => {
+export default function StudentDashboard() {
   const { user } = useAuth();
-  const { toast } = useToast();
-  const navigate = useNavigate();
   const { 
-    getAssignmentsForStudent,
-    getStudentProgress,
-    updateStudentProgress
+    getAssignmentsForStudent, 
+    getStudentProgress, 
+    updateStudentProgress 
   } = useAssignments();
 
-  // Get real assignments from context instead of mock data
-  const userClass = user?.classes[0] || '';
-  const userSection = user?.sections[0] || '';
-  const assignedContent = getAssignmentsForStudent(userClass, userSection);
-  
-  // Use email as student identifier since username doesn't exist on User type
-  const studentId = user?.email || '';
+  const studentAssignments = getAssignmentsForStudent(
+    user?.class || '', 
+    user?.section || ''
+  );
 
-  // Find the most recent incomplete assignment that should be prioritized
-  const incompleteAssignments = assignedContent.filter(assignment => {
-    const progress = getStudentProgress(studentId, assignment.id);
-    return !progress || progress.status !== 'completed';
+  const requiredIncompleteAssignments = studentAssignments.filter(assignment => {
+    const progress = getStudentProgress(user?.id || '', assignment.id);
+    return assignment.isRequired && (!progress || progress.status !== 'completed');
   });
 
-  // Sort by creation date (newest first) to find the priority assignment
-  const priorityAssignment = incompleteAssignments
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+  const hasBlockingAssignment = requiredIncompleteAssignments.length > 0;
+  const nextRequiredAssignment = requiredIncompleteAssignments[0];
 
-  const hasUncompletedRequiredAssignment = !!priorityAssignment;
-
-  const reflexChallenges = assignedContent.filter(a => a.type === 'reflex');
-  const stories = assignedContent.filter(a => a.type === 'story');
-  const puzzles = assignedContent.filter(a => a.type === 'puzzle');
-
-  // Mock student performance data
-  const studentData = {
-    currentStreak: 7,
-    totalTimeSpent: 245,
-    weeklyTimeSpent: 85,
-    level: 'Intermediate',
-    xp: 1250,
-    nextLevelXP: 1500,
-    badges: ['Early Bird', 'Consistent Learner', 'Grammar Master'],
-    performance: {
-      speaking: 85,
-      pronunciation: 78,
-      vocabulary: 92,
-      grammar: 88,
-      story: 90,
-      reflex: 75
-    },
-    recentActivities: [
-      { type: 'Reflex Challenge', score: 85, time: '2 hours ago' },
-      { type: 'Story Builder', score: 90, time: '5 hours ago' },
-      { type: 'Word Puzzle', score: 78, time: '1 day ago' },
-      { type: 'Speaking Practice', score: 88, time: '1 day ago' }
-    ]
-  };
-
-  const getPerformanceColor = (score: number) => {
-    if (score >= 80) return 'text-green-600';
-    if (score >= 60) return 'text-yellow-600';
-    return 'text-red-600';
-  };
-
-  const handleSubmitReflexAnswer = (assignmentId: string, answer: string) => {
-    if (!answer.trim()) return;
-    
-    updateStudentProgress({
-      assignmentId,
-      studentId,
-      status: 'completed',
-      attempts: 1,
-      bestScore: 85,
-      timeSpent: 5,
-      responses: [answer]
-    });
-    
-    toast({
-      title: "Assignment Completed!",
-      description: "Great work! You can now access other exercises.",
-    });
-  };
-
-  const handleStartActivity = (activityType: string) => {
-    if (hasUncompletedRequiredAssignment) {
-      toast({
-        title: "Assignment Required",
-        description: "Please complete your current assignment first.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const routes: { [key: string]: string } = {
-      speaking: '/speaking',
-      pronunciation: '/pronunciation',
-      vocabulary: '/vocabulary',
-      grammar: '/grammar',
-      story: '/story',
-      reflex: '/reflex',
-      puzzle: '/word-puzzle'
-    };
-    
-    if (routes[activityType]) {
-      navigate(routes[activityType]);
+  const getAssignmentIcon = (type: string) => {
+    switch (type) {
+      case 'reflex': return <Zap className="h-5 w-5" />;
+      case 'story': return <BookOpen className="h-5 w-5" />;
+      case 'puzzle': return <Puzzle className="h-5 w-5" />;
+      default: return <BookOpen className="h-5 w-5" />;
     }
   };
 
-  const handleCompleteAssignment = (assignmentId: string, type: string) => {
-    updateStudentProgress({
-      assignmentId,
-      studentId,
-      status: 'completed',
-      attempts: 1,
-      bestScore: 90,
-      timeSpent: 10
-    });
+  const getAssignmentPath = (assignment: any) => {
+    const baseUrl = {
+      'story': '/story',
+      'puzzle': '/word-puzzle',
+      'reflex': '/reflex'
+    }[assignment.type] || '/story';
     
-    toast({
-      title: "Assignment Completed!",
-      description: "Excellent! You can now access all other exercises.",
-    });
+    return `${baseUrl}?assignmentId=${assignment.id}`;
   };
 
-  // Render priority assignment view if there's an uncompleted required assignment
-  if (hasUncompletedRequiredAssignment && priorityAssignment) {
+  const formatDueDate = (dueDate: string) => {
+    const date = new Date(dueDate);
+    const now = new Date();
+    const diffTime = date.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return 'Overdue';
+    if (diffDays === 0) return 'Due today';
+    if (diffDays === 1) return 'Due tomorrow';
+    return `Due in ${diffDays} days`;
+  };
+
+  if (hasBlockingAssignment) {
     return (
-      <AppLayout>
-        <div className="p-6 space-y-6">
-          {/* Priority Assignment Header */}
-          <div className="space-y-2">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Required Assignment
-            </h1>
-            <p className="text-muted-foreground">
-              Complete this assignment to unlock your dashboard
-            </p>
-          </div>
-
-          {/* Assignment Requirement Alert */}
-          <Alert className="border-orange-200 bg-orange-50">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Your teacher has assigned a new task. Please complete it before accessing other activities.
-            </AlertDescription>
-          </Alert>
-
-          {/* Priority Assignment Card */}
-          <Card className="border-2 border-primary">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  {priorityAssignment.type === 'reflex' && <Zap className="h-5 w-5 text-yellow-500" />}
-                  {priorityAssignment.type === 'story' && <BookOpen className="h-5 w-5 text-blue-500" />}
-                  {priorityAssignment.type === 'puzzle' && <Puzzle className="h-5 w-5 text-green-500" />}
-                  {priorityAssignment.title}
-                </CardTitle>
-                <Badge variant="outline" className="bg-red-50 text-red-700">
-                  Required
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="bg-muted/50 p-4 rounded-lg">
-                <p className="text-sm mb-3">{priorityAssignment.content}</p>
-                <div className="flex gap-2 text-sm text-muted-foreground">
-                  <span>By: {priorityAssignment.createdBy}</span>
-                  <span>•</span>
-                  <span>
-                    Due: {priorityAssignment.dueDate 
-                      ? new Date(priorityAssignment.dueDate).toLocaleDateString() 
-                      : 'No due date'
-                    }
-                  </span>
-                </div>
-              </div>
-
-              {priorityAssignment.type === 'reflex' && (
-                <div className="space-y-3">
-                  <Textarea
-                    placeholder="Type your response here..."
-                    rows={4}
-                    id={`priority-challenge-${priorityAssignment.id}`}
-                  />
-                  <Button 
-                    onClick={() => {
-                      const textarea = document.getElementById(`priority-challenge-${priorityAssignment.id}`) as HTMLTextAreaElement;
-                      handleSubmitReflexAnswer(priorityAssignment.id, textarea?.value || '');
-                    }}
-                    className="w-full"
-                    size="lg"
-                  >
-                    <Send className="h-4 w-4 mr-2" />
-                    Submit Assignment
-                  </Button>
-                </div>
-              )}
-
-              {priorityAssignment.type === 'story' && (
-                <Button 
-                  onClick={() => navigate('/story')}
-                  className="w-full"
-                  size="lg"
-                >
-                  <Play className="h-4 w-4 mr-2" />
-                  Start Story Assignment
-                </Button>
-              )}
-
-              {priorityAssignment.type === 'puzzle' && (
-                <Button 
-                  onClick={() => navigate('/word-puzzle')}
-                  className="w-full"
-                  size="lg"
-                >
-                  <Play className="h-4 w-4 mr-2" />
-                  Solve Puzzle Assignment
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Locked Features Preview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Lock className="h-5 w-5 text-muted-foreground" />
-                Locked Features
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {[
-                  { name: 'Speaking Practice', icon: Zap },
-                  { name: 'Vocabulary Trainer', icon: BookOpen },
-                  { name: 'Grammar Clinic', icon: Target },
-                  { name: 'Story Builder', icon: BookOpen },
-                  { name: 'Word Puzzles', icon: Puzzle },
-                  { name: 'Progress Tracking', icon: TrendingUp }
-                ].map((feature, index) => (
-                  <div key={index} className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg opacity-60">
-                    <feature.icon className="h-4 w-4" />
-                    <span className="text-sm">{feature.name}</span>
-                    <Lock className="h-3 w-3 ml-auto" />
-                  </div>
-                ))}
-              </div>
-              <p className="text-sm text-muted-foreground mt-4 text-center">
-                Complete your assignment above to unlock these features
-              </p>
-            </CardContent>
-          </Card>
+      <div className="container mx-auto p-6 max-w-4xl">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold mb-2">Welcome back, {user?.fullName}!</h1>
+          <p className="text-muted-foreground">You have a required assignment to complete</p>
         </div>
-      </AppLayout>
+
+        <Card className="mb-6 border-orange-200 bg-orange-50">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-orange-600" />
+              <CardTitle className="text-orange-800">Required Assignment</CardTitle>
+              <Badge variant="destructive">Must Complete</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 p-3 bg-white rounded-lg">
+                  {getAssignmentIcon(nextRequiredAssignment.type)}
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-lg mb-2">{nextRequiredAssignment.title}</h3>
+                  <p className="text-muted-foreground mb-3">{nextRequiredAssignment.content}</p>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
+                    <span className="capitalize">{nextRequiredAssignment.type} Challenge</span>
+                    {nextRequiredAssignment.dueDate && (
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-4 w-4" />
+                        <span>{formatDueDate(nextRequiredAssignment.dueDate)}</span>
+                      </div>
+                    )}
+                  </div>
+                  <Link to={getAssignmentPath(nextRequiredAssignment)}>
+                    <Button size="lg" className="w-full sm:w-auto">
+                      Start Assignment
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gray-50 border-gray-200">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <Lock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="font-semibold text-gray-600 mb-2">Other Activities Locked</h3>
+              <p className="text-gray-500">
+                Complete your required assignment above to unlock all other dashboard features and exercises.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
-  // Normal dashboard view when no priority assignments
   return (
-    <AppLayout>
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            Welcome back, {user?.fullName?.split(' ')[0]}!
-          </h1>
-          <p className="text-muted-foreground">
-            {user?.classes[0]} - Section {user?.sections[0]} • Keep up the great work!
-          </p>
-          {assignedContent.length > 0 && (
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                {assignedContent.length} Assignment{assignedContent.length !== 1 ? 's' : ''} Available
-              </Badge>
-              {assignedContent.some(a => new Date(a.updatedAt) > new Date(Date.now() - 24 * 60 * 60 * 1000)) && (
-                <Badge variant="outline" className="bg-green-50 text-green-700">
-                  New Updates!
-                </Badge>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Streak & Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="border-2 border-orange-200 bg-orange-50/50">
-            <CardContent className="flex items-center p-6">
-              <Flame className="h-8 w-8 text-orange-600 mr-3" />
-              <div>
-                <p className="text-2xl font-bold text-orange-600">{studentData.currentStreak}</p>
-                <p className="text-sm text-muted-foreground">Day Streak</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center p-6">
-              <Clock className="h-8 w-8 text-blue-600 mr-3" />
-              <div>
-                <p className="text-2xl font-bold">{studentData.weeklyTimeSpent}m</p>
-                <p className="text-sm text-muted-foreground">This Week</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center p-6">
-              <Trophy className="h-8 w-8 text-yellow-600 mr-3" />
-              <div>
-                <p className="text-2xl font-bold">{studentData.level}</p>
-                <p className="text-sm text-muted-foreground">Current Level</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center p-6">
-              <Star className="h-8 w-8 text-purple-600 mr-3" />
-              <div>
-                <p className="text-2xl font-bold">{studentData.xp}</p>
-                <p className="text-sm text-muted-foreground">Total XP</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Performance Overview */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  Your Performance
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {Object.entries(studentData.performance).map(([skill, score]) => (
-                    <div key={skill} className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium capitalize">{skill}</span>
-                        <span className={`text-sm font-bold ${getPerformanceColor(score)}`}>
-                          {score}%
-                        </span>
-                      </div>
-                      <Progress value={score} className="h-2" />
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Dynamic Reflex Challenges */}
-            {reflexChallenges.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Zap className="h-5 w-5 text-yellow-500" />
-                    Reflex Challenges ({reflexChallenges.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {reflexChallenges.map((challenge) => {
-                    const progress = getStudentProgress(studentId, challenge.id);
-                    const isNew = new Date(challenge.createdAt) > new Date(Date.now() - 24 * 60 * 60 * 1000);
-                    
-                    return (
-                      <div key={challenge.id} className="border rounded-lg p-4 space-y-3">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <p className="font-medium">{challenge.title}</p>
-                              {isNew && <Badge variant="outline" className="bg-green-50 text-green-700 text-xs">New!</Badge>}
-                            </div>
-                            <p className="text-sm mb-2">{challenge.content}</p>
-                            <div className="flex gap-2 text-sm text-muted-foreground">
-                              <span>By: {challenge.createdBy}</span>
-                              <span>•</span>
-                              <span>Due: {challenge.dueDate ? new Date(challenge.dueDate).toLocaleDateString() : 'No due date'}</span>
-                            </div>
-                          </div>
-                          <Badge variant={progress?.status === 'completed' ? 'default' : 'secondary'}>
-                            {progress?.status || 'pending'}
-                          </Badge>
-                        </div>
-                        {(!progress || progress.status !== 'completed') && (
-                          <div className="space-y-2">
-                            <Textarea
-                              placeholder="Type your response here..."
-                              rows={3}
-                              id={`challenge-${challenge.id}`}
-                            />
-                            <Button 
-                              onClick={() => {
-                                const textarea = document.getElementById(`challenge-${challenge.id}`) as HTMLTextAreaElement;
-                                handleSubmitReflexAnswer(challenge.id, textarea?.value || '');
-                              }}
-                              className="w-full"
-                            >
-                              <Send className="h-4 w-4 mr-2" />
-                              Submit Answer
-                            </Button>
-                          </div>
-                        )}
-                        {progress?.status === 'completed' && (
-                          <div className="bg-green-50 p-3 rounded-lg">
-                            <p className="text-sm text-green-700 font-medium">✓ Completed</p>
-                            <p className="text-sm text-green-600">Score: {progress.bestScore}% • Time: {progress.timeSpent}m</p>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Dynamic Story Assignments */}
-            {stories.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BookOpen className="h-5 w-5 text-blue-500" />
-                    Story Assignments ({stories.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {stories.map((story) => {
-                    const progress = getStudentProgress(studentId, story.id);
-                    const isNew = new Date(story.createdAt) > new Date(Date.now() - 24 * 60 * 60 * 1000);
-                    
-                    return (
-                      <div key={story.id} className="border rounded-lg p-4 space-y-3">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-semibold">{story.title}</h3>
-                              {isNew && <Badge variant="outline" className="bg-green-50 text-green-700 text-xs">New!</Badge>}
-                            </div>
-                            <p className="text-sm text-muted-foreground">By: {story.createdBy}</p>
-                          </div>
-                          <Badge variant="outline">{progress?.status || 'assigned'}</Badge>
-                        </div>
-                        <div className="bg-muted/50 p-3 rounded text-sm">
-                          {story.content}
-                        </div>
-                        <Button onClick={() => handleStartActivity('story')} className="w-full">
-                          <Play className="h-4 w-4 mr-2" />
-                          {progress?.status === 'completed' ? 'Review Story' : 'Continue Story'}
-                        </Button>
-                      </div>
-                    );
-                  })}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Dynamic Puzzle Assignments */}
-            {puzzles.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Puzzle className="h-5 w-5 text-green-500" />
-                    Word Puzzles ({puzzles.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {puzzles.map((puzzle) => {
-                    const progress = getStudentProgress(studentId, puzzle.id);
-                    const isNew = new Date(puzzle.createdAt) > new Date(Date.now() - 24 * 60 * 60 * 1000);
-                    
-                    return (
-                      <div key={puzzle.id} className="border rounded-lg p-4 space-y-3">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-semibold">{puzzle.title}</h3>
-                              {isNew && <Badge variant="outline" className="bg-green-50 text-green-700 text-xs">New!</Badge>}
-                            </div>
-                            <p className="text-sm text-muted-foreground">By: {puzzle.createdBy}</p>
-                          </div>
-                          <div className="text-right">
-                            <Badge variant="outline">Attempts: {progress?.attempts || 0}</Badge>
-                            {progress && <p className="text-sm text-muted-foreground mt-1">Best: {progress.bestScore}%</p>}
-                          </div>
-                        </div>
-                        {puzzle.metadata?.words && (
-                          <div className="flex flex-wrap gap-2">
-                            {puzzle.metadata.words.map((word, index) => (
-                              <Badge key={index} variant="secondary">{word}</Badge>
-                            ))}
-                          </div>
-                        )}
-                        <Button onClick={() => handleStartActivity('puzzle')} className="w-full">
-                          <Play className="h-4 w-4 mr-2" />
-                          {progress?.status === 'completed' ? 'Try Again' : 'Solve Puzzle'}
-                        </Button>
-                      </div>
-                    );
-                  })}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* No Assignments Message */}
-            {assignedContent.length === 0 && (
-              <Card>
-                <CardContent className="text-center py-12">
-                  <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No assignments yet</h3>
-                  <p className="text-muted-foreground">
-                    Your teacher hasn't assigned any exercises yet. Check back later!
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* Right Column */}
-          <div className="space-y-6">
-            {/* Level Progress */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="h-5 w-5" />
-                  Level Progress
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{studentData.level}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {studentData.xp} / {studentData.nextLevelXP} XP
-                  </div>
-                </div>
-                <Progress 
-                  value={(studentData.xp / studentData.nextLevelXP) * 100} 
-                  className="h-3"
-                />
-                <div className="text-center text-sm text-muted-foreground">
-                  {studentData.nextLevelXP - studentData.xp} XP to next level
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Badges */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Award className="h-5 w-5" />
-                  Your Badges
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-2">
-                  {studentData.badges.map((badge, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
-                      <Trophy className="h-4 w-4 text-yellow-500" />
-                      <span className="text-sm font-medium">{badge}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Practice</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button 
-                  onClick={() => handleStartActivity('speaking')} 
-                  variant="outline" 
-                  className="w-full justify-start"
-                >
-                  <Zap className="h-4 w-4 mr-2" />
-                  Speaking Practice
-                </Button>
-                <Button 
-                  onClick={() => handleStartActivity('vocabulary')} 
-                  variant="outline" 
-                  className="w-full justify-start"
-                >
-                  <BookOpen className="h-4 w-4 mr-2" />
-                  Vocabulary Trainer
-                </Button>
-                <Button 
-                  onClick={() => handleStartActivity('grammar')} 
-                  variant="outline" 
-                  className="w-full justify-start"
-                >
-                  <Target className="h-4 w-4 mr-2" />
-                  Grammar Clinic
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Recent Activity */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {studentData.recentActivities.map((activity, index) => (
-                  <div key={index} className="flex items-center justify-between text-sm">
-                    <div>
-                      <p className="font-medium">{activity.type}</p>
-                      <p className="text-muted-foreground">{activity.time}</p>
-                    </div>
-                    <Badge variant="outline" className={getPerformanceColor(activity.score)}>
-                      {activity.score}%
-                    </Badge>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+    <div className="container mx-auto p-6 max-w-6xl">
+      <div className="text-center mb-8">
+        <h1 className="text-3xl font-bold mb-2">Welcome back, {user?.fullName}!</h1>
+        <p className="text-muted-foreground">Continue your learning journey</p>
       </div>
-    </AppLayout>
-  );
-};
 
-export default StudentDashboard;
+      {/* Assignments Section */}
+      {studentAssignments.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-2xl font-semibold mb-6">Your Assignments</h2>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {studentAssignments.map((assignment) => {
+              const progress = getStudentProgress(user?.id || '', assignment.id);
+              const isCompleted = progress?.status === 'completed';
+              
+              return (
+                <Card key={assignment.id} className={isCompleted ? 'border-green-200 bg-green-50' : ''}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {getAssignmentIcon(assignment.type)}
+                        <span className="font-medium capitalize">{assignment.type}</span>
+                      </div>
+                      {isCompleted ? (
+                        <Badge variant="success" className="gap-1">
+                          <CheckCircle className="h-3 w-3" />
+                          Completed
+                        </Badge>
+                      ) : assignment.isRequired ? (
+                        <Badge variant="destructive">Required</Badge>
+                      ) : (
+                        <Badge variant="outline">Optional</Badge>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <h3 className="font-semibold mb-2">{assignment.title}</h3>
+                    <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                      {assignment.content}
+                    </p>
+                    {assignment.dueDate && (
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground mb-4">
+                        <Clock className="h-4 w-4" />
+                        <span>{formatDueDate(assignment.dueDate)}</span>
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <Link to={getAssignmentPath(assignment)} className="flex-1">
+                        <Button variant={isCompleted ? "outline" : "default"} className="w-full">
+                          {isCompleted ? 'Review' : 'Start'}
+                        </Button>
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <Card className="mb-4">
+        <CardHeader>
+          <h3 className="font-semibold">Continue Learning</h3>
+          <p className="text-sm text-gray-500">Explore new activities</p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <Card>
+              <CardContent>
+                <div className="flex items-center">
+                  <BookOpen className="mr-2 text-blue-500" />
+                  <h4 className="font-medium">Story Builder</h4>
+                </div>
+                <p className="text-sm text-gray-500">
+                  Create your own stories and share them with friends.
+                </p>
+                <Button variant="outline" className="mt-4">
+                  Start
+                </Button>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent>
+                <div className="flex items-center">
+                  <Zap className="mr-2 text-yellow-500" />
+                  <h4 className="font-medium">Reflex Challenge</h4>
+                </div>
+                <p className="text-sm text-gray-500">
+                  Test your reflexes with timed challenges.
+                </p>
+                <Button variant="outline" className="mt-4">
+                  Start
+                </Button>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent>
+                <div className="flex items-center">
+                  <Puzzle className="mr-2 text-green-500" />
+                  <h4 className="font-medium">Word Puzzle</h4>
+                </div>
+                <p className="text-sm text-gray-500">
+                  Improve your vocabulary with fun word puzzles.
+                </p>
+                <Button variant="outline" className="mt-4">
+                  Start
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

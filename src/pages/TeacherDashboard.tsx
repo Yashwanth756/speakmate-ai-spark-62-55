@@ -16,7 +16,7 @@ import {
   Trophy, 
   BookOpen, 
   Zap, 
-  PuzzlePiece, 
+  Puzzle, 
   TrendingUp, 
   Clock,
   Award,
@@ -541,7 +541,7 @@ const TeacherDashboard = () => {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <PuzzlePiece className="h-5 w-5" />
+                  <Puzzle className="h-5 w-5" />
                   Create Word Puzzle
                 </CardTitle>
               </CardHeader>

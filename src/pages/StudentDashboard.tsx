@@ -1,4 +1,3 @@
-
 import React from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +13,7 @@ import {
   Star, 
   Zap, 
   BookOpen, 
-  PuzzlePiece,
+  Puzzle,
   TrendingUp,
   Award,
   Target,
@@ -286,7 +285,7 @@ const StudentDashboard = () => {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <PuzzlePiece className="h-5 w-5 text-green-500" />
+                    <Puzzle className="h-5 w-5 text-green-500" />
                     Word Puzzles
                   </CardTitle>
                 </CardHeader>

@@ -1,11 +1,9 @@
-
 import React from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
@@ -28,6 +26,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { useAssignments } from "@/contexts/AssignmentContext";
+import { usePerformance } from "@/contexts/PerformanceContext";
 
 const StudentDashboard = () => {
   const { user } = useAuth();
@@ -38,6 +37,7 @@ const StudentDashboard = () => {
     getStudentProgress,
     updateStudentProgress
   } = useAssignments();
+  const { getStudentPerformance } = usePerformance();
 
   // Get real assignments from context instead of mock data
   const userClass = user?.classes[0] || '';
@@ -46,6 +46,9 @@ const StudentDashboard = () => {
   
   // Use email as student identifier since username doesn't exist on User type
   const studentId = user?.email || '';
+
+  // Get real performance data
+  const studentPerformance = getStudentPerformance(user?.id || '');
 
   // Find the most recent incomplete assignment that should be prioritized
   const incompleteAssignments = assignedContent.filter(assignment => {
@@ -63,29 +66,24 @@ const StudentDashboard = () => {
   const stories = assignedContent.filter(a => a.type === 'story');
   const puzzles = assignedContent.filter(a => a.type === 'puzzle');
 
-  // Mock student performance data
-  const studentData = {
-    currentStreak: 7,
-    totalTimeSpent: 245,
-    weeklyTimeSpent: 85,
-    level: 'Intermediate',
-    xp: 1250,
-    nextLevelXP: 1500,
-    badges: ['Early Bird', 'Consistent Learner', 'Grammar Master'],
+  // Use real student performance data or fallback to defaults
+  const studentData = studentPerformance || {
+    currentStreak: 0,
+    totalTimeSpent: 0,
+    weeklyTimeSpent: 0,
+    level: 'Beginner',
+    totalPoints: 0,
+    nextLevelXP: 100,
+    badges: [],
     performance: {
-      speaking: 85,
-      pronunciation: 78,
-      vocabulary: 92,
-      grammar: 88,
-      story: 90,
-      reflex: 75
+      speaking: 0,
+      pronunciation: 0,
+      vocabulary: 0,
+      grammar: 0,
+      story: 0,
+      reflex: 0
     },
-    recentActivities: [
-      { type: 'Reflex Challenge', score: 85, time: '2 hours ago' },
-      { type: 'Story Builder', score: 90, time: '5 hours ago' },
-      { type: 'Word Puzzle', score: 78, time: '1 day ago' },
-      { type: 'Speaking Practice', score: 88, time: '1 day ago' }
-    ]
+    recentActivities: []
   };
 
   const getPerformanceColor = (score: number) => {
@@ -136,22 +134,6 @@ const StudentDashboard = () => {
     if (routes[activityType]) {
       navigate(routes[activityType]);
     }
-  };
-
-  const handleCompleteAssignment = (assignmentId: string, type: string) => {
-    updateStudentProgress({
-      assignmentId,
-      studentId,
-      status: 'completed',
-      attempts: 1,
-      bestScore: 90,
-      timeSpent: 10
-    });
-    
-    toast({
-      title: "Assignment Completed!",
-      description: "Excellent! You can now access all other exercises.",
-    });
   };
 
   // Render priority assignment view if there's an uncompleted required assignment
@@ -313,14 +295,32 @@ const StudentDashboard = () => {
           )}
         </div>
 
-        {/* Streak & Quick Stats */}
+        {/* Real-time Performance Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="border-2 border-orange-200 bg-orange-50/50">
             <CardContent className="flex items-center p-6">
               <Flame className="h-8 w-8 text-orange-600 mr-3" />
               <div>
-                <p className="text-2xl font-bold text-orange-600">{studentData.currentStreak}</p>
+                <p className="text-2xl font-bold text-orange-600">{studentPerformance?.streak || 0}</p>
                 <p className="text-sm text-muted-foreground">Day Streak</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex items-center p-6">
+              <Star className="h-8 w-8 text-yellow-600 mr-3" />
+              <div>
+                <p className="text-2xl font-bold">{studentPerformance?.totalPoints || 0}</p>
+                <p className="text-sm text-muted-foreground">Total Points</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex items-center p-6">
+              <Trophy className="h-8 w-8 text-purple-600 mr-3" />
+              <div>
+                <p className="text-2xl font-bold">{studentPerformance?.level || 'Beginner'}</p>
+                <p className="text-sm text-muted-foreground">Current Level</p>
               </div>
             </CardContent>
           </Card>
@@ -328,26 +328,8 @@ const StudentDashboard = () => {
             <CardContent className="flex items-center p-6">
               <Clock className="h-8 w-8 text-blue-600 mr-3" />
               <div>
-                <p className="text-2xl font-bold">{studentData.weeklyTimeSpent}m</p>
-                <p className="text-sm text-muted-foreground">This Week</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center p-6">
-              <Trophy className="h-8 w-8 text-yellow-600 mr-3" />
-              <div>
-                <p className="text-2xl font-bold">{studentData.level}</p>
-                <p className="text-sm text-muted-foreground">Current Level</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center p-6">
-              <Star className="h-8 w-8 text-purple-600 mr-3" />
-              <div>
-                <p className="text-2xl font-bold">{studentData.xp}</p>
-                <p className="text-sm text-muted-foreground">Total XP</p>
+                <p className="text-2xl font-bold">{studentPerformance?.timeSpent || 0}m</p>
+                <p className="text-sm text-muted-foreground">Time Spent</p>
               </div>
             </CardContent>
           </Card>
@@ -366,17 +348,30 @@ const StudentDashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {Object.entries(studentData.performance).map(([skill, score]) => (
-                    <div key={skill} className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium capitalize">{skill}</span>
-                        <span className={`text-sm font-bold ${getPerformanceColor(score)}`}>
-                          {score}%
-                        </span>
+                  {studentPerformance ? (
+                    Object.entries({
+                      speaking: studentPerformance.averageScore,
+                      pronunciation: studentPerformance.averageScore,
+                      vocabulary: studentPerformance.averageScore,
+                      grammar: studentPerformance.averageScore,
+                      story: studentPerformance.averageScore,
+                      reflex: studentPerformance.averageScore
+                    }).map(([skill, score]) => (
+                      <div key={skill} className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium capitalize">{skill}</span>
+                          <span className={`text-sm font-bold ${getPerformanceColor(score)}`}>
+                            {score}%
+                          </span>
+                        </div>
+                        <Progress value={score} className="h-2" />
                       </div>
-                      <Progress value={score} className="h-2" />
+                    ))
+                  ) : (
+                    <div className="col-span-full text-center text-muted-foreground">
+                      Complete exercises to see your performance data
                     </div>
-                  ))}
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -559,18 +554,20 @@ const StudentDashboard = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold">{studentData.level}</div>
+                  <div className="text-2xl font-bold">{studentPerformance?.level || 'Beginner'}</div>
                   <div className="text-sm text-muted-foreground">
-                    {studentData.xp} / {studentData.nextLevelXP} XP
+                    {studentPerformance?.totalPoints || 0} points earned
                   </div>
                 </div>
-                <Progress 
-                  value={(studentData.xp / studentData.nextLevelXP) * 100} 
-                  className="h-3"
-                />
-                <div className="text-center text-sm text-muted-foreground">
-                  {studentData.nextLevelXP - studentData.xp} XP to next level
-                </div>
+                {studentPerformance && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Current Points</span>
+                      <span>{studentPerformance.totalPoints}</span>
+                    </div>
+                    <Progress value={Math.min(100, (studentPerformance.totalPoints % 100))} className="h-3" />
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -583,14 +580,21 @@ const StudentDashboard = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 gap-2">
-                  {studentData.badges.map((badge, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
-                      <Trophy className="h-4 w-4 text-yellow-500" />
-                      <span className="text-sm font-medium">{badge}</span>
-                    </div>
-                  ))}
-                </div>
+                {studentPerformance?.badges && studentPerformance.badges.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-2">
+                    {studentPerformance.badges.map((badge, index) => (
+                      <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                        <Trophy className="h-4 w-4 text-yellow-500" />
+                        <span className="text-sm font-medium">{badge}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground">
+                    <Award className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">Complete exercises to earn badges!</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -633,17 +637,31 @@ const StudentDashboard = () => {
                 <CardTitle>Recent Activity</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {studentData.recentActivities.map((activity, index) => (
-                  <div key={index} className="flex items-center justify-between text-sm">
-                    <div>
-                      <p className="font-medium">{activity.type}</p>
-                      <p className="text-muted-foreground">{activity.time}</p>
+                {studentPerformance?.exerciseHistory && studentPerformance.exerciseHistory.length > 0 ? (
+                  studentPerformance.exerciseHistory.slice(-5).reverse().map((activity, index) => (
+                    <div key={index} className="flex items-center justify-between text-sm">
+                      <div>
+                        <p className="font-medium">{activity.exerciseTitle}</p>
+                        <p className="text-muted-foreground">
+                          {new Date(activity.completedAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <Badge variant="outline" className={getPerformanceColor(activity.score)}>
+                          {activity.score}%
+                        </Badge>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          +{activity.pointsEarned} points
+                        </p>
+                      </div>
                     </div>
-                    <Badge variant="outline" className={getPerformanceColor(activity.score)}>
-                      {activity.score}%
-                    </Badge>
+                  ))
+                ) : (
+                  <div className="text-center text-muted-foreground">
+                    <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No recent activity</p>
                   </div>
-                ))}
+                )}
               </CardContent>
             </Card>
           </div>

@@ -97,8 +97,8 @@ const TeacherDashboard = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { getAssignmentsForTeacher, getProgressForAssignment } = useAssignments();
-  const [selectedClass, setSelectedClass] = useState(user?.classes[0] || '');
-  const [selectedSection, setSelectedSection] = useState(user?.sections[0] || '');
+  const [selectedClass, setSelectedClass] = useState(user?.classes?.[0] || '');
+  const [selectedSection, setSelectedSection] = useState(user?.sections?.[0] || '');
   const [sortBy, setSortBy] = useState('overall');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
@@ -110,8 +110,8 @@ const TeacherDashboard = () => {
   const filteredStudents = MOCK_STUDENTS.filter(student => 
     (!selectedClass || selectedClass === 'all-classes' || student.class === selectedClass) &&
     (!selectedSection || selectedSection === 'all-sections' || student.section === selectedSection) &&
-    user?.classes.includes(student.class) &&
-    user?.sections.includes(student.section)
+    (user?.classes || []).includes(student.class) &&
+    (user?.sections || []).includes(student.section)
   ).sort((a, b) => {
     const aValue = a[sortBy as keyof typeof a] as number;
     const bValue = b[sortBy as keyof typeof b] as number;
@@ -210,7 +210,7 @@ const TeacherDashboard = () => {
             <CardContent className="flex items-center p-6">
               <TrendingUp className="h-8 w-8 text-purple-600 mr-3" />
               <div>
-                <p className="text-2xl font-bold">{user?.classes.length}</p>
+                <p className="text-2xl font-bold">{(user?.classes || []).length}</p>
                 <p className="text-sm text-muted-foreground">Your Classes</p>
               </div>
             </CardContent>
@@ -246,7 +246,7 @@ const TeacherDashboard = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all-classes">All Classes</SelectItem>
-                        {user?.classes.map(className => (
+                        {(user?.classes || []).map(className => (
                           <SelectItem key={className} value={className}>
                             {className}
                           </SelectItem>
@@ -262,7 +262,7 @@ const TeacherDashboard = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all-sections">All Sections</SelectItem>
-                        {user?.sections.map(section => (
+                        {(user?.sections || []).map(section => (
                           <SelectItem key={section} value={section}>
                             Section {section}
                           </SelectItem>
@@ -308,7 +308,7 @@ const TeacherDashboard = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all-classes">All Classes</SelectItem>
-                        {user?.classes.map(className => (
+                        {(user?.classes || []).map(className => (
                           <SelectItem key={className} value={className}>
                             {className}
                           </SelectItem>
@@ -324,7 +324,7 @@ const TeacherDashboard = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all-sections">All Sections</SelectItem>
-                        {user?.sections.map(section => (
+                        {(user?.sections || []).map(section => (
                           <SelectItem key={section} value={section}>
                             Section {section}
                           </SelectItem>
@@ -498,7 +498,7 @@ const TeacherDashboard = () => {
                         <SelectValue placeholder="Select Class" />
                       </SelectTrigger>
                       <SelectContent>
-                        {user?.classes.map(className => (
+                        {(user?.classes || []).map(className => (
                           <SelectItem key={className} value={className}>
                             {className}
                           </SelectItem>
@@ -513,7 +513,7 @@ const TeacherDashboard = () => {
                         <SelectValue placeholder="Select Section" />
                       </SelectTrigger>
                       <SelectContent>
-                        {user?.sections.map(section => (
+                        {(user?.sections || []).map(section => (
                           <SelectItem key={section} value={section}>
                             Section {section}
                           </SelectItem>

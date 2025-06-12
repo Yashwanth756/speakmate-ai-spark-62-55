@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 
@@ -14,6 +13,7 @@ export interface Assignment {
   updatedAt: string;
   dueDate?: string;
   status: 'draft' | 'published' | 'archived';
+  isRequired?: boolean;
   metadata?: {
     words?: string[];
     difficulty?: string;
@@ -44,6 +44,7 @@ interface AssignmentContextType {
   updateStudentProgress: (progress: Partial<StudentProgress> & { assignmentId: string; studentId: string }) => void;
   getStudentProgress: (studentId: string, assignmentId: string) => StudentProgress | undefined;
   getProgressForAssignment: (assignmentId: string) => StudentProgress[];
+  markAssignmentAsRequired: (id: string, isRequired: boolean) => void;
 }
 
 const AssignmentContext = createContext<AssignmentContextType | undefined>(undefined);
@@ -62,6 +63,7 @@ const MOCK_ASSIGNMENTS: Assignment[] = [
     updatedAt: '2024-06-10T10:00:00Z',
     dueDate: '2024-06-15T23:59:59Z',
     status: 'published',
+    isRequired: true,
     metadata: {
       timeLimit: 300 // 5 minutes
     }
@@ -76,7 +78,8 @@ const MOCK_ASSIGNMENTS: Assignment[] = [
     createdBy: 'Ms. Johnson',
     createdAt: '2024-06-11T09:00:00Z',
     updatedAt: '2024-06-11T09:00:00Z',
-    status: 'published'
+    status: 'published',
+    isRequired: false
   },
   {
     id: '3',
@@ -89,6 +92,7 @@ const MOCK_ASSIGNMENTS: Assignment[] = [
     createdAt: '2024-06-09T14:00:00Z',
     updatedAt: '2024-06-09T14:00:00Z',
     status: 'published',
+    isRequired: false,
     metadata: {
       words: ['experiment', 'hypothesis', 'analysis', 'conclusion', 'laboratory'],
       difficulty: 'medium',
@@ -119,7 +123,8 @@ export const AssignmentProvider: React.FC<{ children: ReactNode }> = ({ children
       ...assignmentData,
       id: Math.random().toString(36).substr(2, 9),
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      isRequired: true // New assignments are required by default
     };
     setAssignments(prev => [...prev, newAssignment]);
   };
@@ -135,6 +140,10 @@ export const AssignmentProvider: React.FC<{ children: ReactNode }> = ({ children
   const deleteAssignment = (id: string) => {
     setAssignments(prev => prev.filter(assignment => assignment.id !== id));
     setStudentProgress(prev => prev.filter(progress => progress.assignmentId !== id));
+  };
+
+  const markAssignmentAsRequired = (id: string, isRequired: boolean) => {
+    updateAssignment(id, { isRequired });
   };
 
   const getAssignmentsForStudent = (studentClass: string, studentSection: string) => {
@@ -196,7 +205,8 @@ export const AssignmentProvider: React.FC<{ children: ReactNode }> = ({ children
       getAssignmentsForTeacher,
       updateStudentProgress,
       getStudentProgress,
-      getProgressForAssignment
+      getProgressForAssignment,
+      markAssignmentAsRequired
     }}>
       {children}
     </AssignmentContext.Provider>

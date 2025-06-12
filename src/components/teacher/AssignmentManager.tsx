@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,7 +40,8 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
     updateAssignment, 
     deleteAssignment,
     getAssignmentsForTeacher,
-    getProgressForAssignment
+    getProgressForAssignment,
+    markAssignmentAsRequired
   } = useAssignments();
 
   const [isCreating, setIsCreating] = useState(false);
@@ -51,6 +51,7 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
     title: '',
     content: '',
     dueDate: '',
+    isRequired: true,
     metadata: {}
   });
 
@@ -89,6 +90,7 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
       title: '',
       content: '',
       dueDate: '',
+      isRequired: true,
       metadata: {}
     });
     setIsCreating(false);
@@ -143,6 +145,14 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
       case 'archived': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const handleToggleRequired = (assignmentId: string, currentStatus: boolean) => {
+    markAssignmentAsRequired(assignmentId, !currentStatus);
+    toast({
+      title: "Assignment Updated",
+      description: `Assignment ${!currentStatus ? 'marked as required' : 'no longer required'}`,
+    });
   };
 
   return (
@@ -207,13 +217,25 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
                 rows={4}
               />
             </div>
-            <div>
-              <Label>Due Date (Optional)</Label>
-              <Input
-                type="datetime-local"
-                value={newAssignment.dueDate}
-                onChange={(e) => setNewAssignment(prev => ({ ...prev, dueDate: e.target.value }))}
-              />
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <Label>Due Date (Optional)</Label>
+                <Input
+                  type="datetime-local"
+                  value={newAssignment.dueDate}
+                  onChange={(e) => setNewAssignment(prev => ({ ...prev, dueDate: e.target.value }))}
+                />
+              </div>
+              <div className="flex items-center space-x-2 pt-6">
+                <input
+                  type="checkbox"
+                  id="required"
+                  checked={newAssignment.isRequired}
+                  onChange={(e) => setNewAssignment(prev => ({ ...prev, isRequired: e.target.checked }))}
+                  className="rounded"
+                />
+                <Label htmlFor="required">Required Assignment</Label>
+              </div>
             </div>
             <Button onClick={handleCreateAssignment} className="w-full">
               Create Assignment
@@ -236,6 +258,7 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
                   <TableHead>Title</TableHead>
                   <TableHead>Class/Section</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Required</TableHead>
                   <TableHead>Students</TableHead>
                   <TableHead>Due Date</TableHead>
                   <TableHead>Actions</TableHead>
@@ -267,6 +290,19 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
                         <Badge className={getStatusColor(assignment.status)}>
                           {assignment.status}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={assignment.isRequired || false}
+                            onChange={() => handleToggleRequired(assignment.id, assignment.isRequired || false)}
+                            className="rounded"
+                          />
+                          <span className="text-sm">
+                            {assignment.isRequired ? 'Required' : 'Optional'}
+                          </span>
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">

@@ -1,3 +1,4 @@
+
 import React from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   Flame, 
   Clock, 
@@ -18,7 +20,9 @@ import {
   Award,
   Target,
   Send,
-  Play
+  Play,
+  Lock,
+  AlertCircle
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -39,6 +43,21 @@ const StudentDashboard = () => {
   const userClass = user?.classes[0] || '';
   const userSection = user?.sections[0] || '';
   const assignedContent = getAssignmentsForStudent(userClass, userSection);
+  
+  // Use email as student identifier since username doesn't exist on User type
+  const studentId = user?.email || '';
+
+  // Find the most recent incomplete assignment that should be prioritized
+  const incompleteAssignments = assignedContent.filter(assignment => {
+    const progress = getStudentProgress(studentId, assignment.id);
+    return !progress || progress.status !== 'completed';
+  });
+
+  // Sort by creation date (newest first) to find the priority assignment
+  const priorityAssignment = incompleteAssignments
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+  const hasUncompletedRequiredAssignment = !!priorityAssignment;
 
   const reflexChallenges = assignedContent.filter(a => a.type === 'reflex');
   const stories = assignedContent.filter(a => a.type === 'story');
@@ -80,7 +99,7 @@ const StudentDashboard = () => {
     
     updateStudentProgress({
       assignmentId,
-      studentId: user?.username || '',
+      studentId,
       status: 'completed',
       attempts: 1,
       bestScore: 85,
@@ -89,12 +108,21 @@ const StudentDashboard = () => {
     });
     
     toast({
-      title: "Answer Submitted!",
-      description: "Your reflex challenge response has been recorded.",
+      title: "Assignment Completed!",
+      description: "Great work! You can now access other exercises.",
     });
   };
 
   const handleStartActivity = (activityType: string) => {
+    if (hasUncompletedRequiredAssignment) {
+      toast({
+        title: "Assignment Required",
+        description: "Please complete your current assignment first.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     const routes: { [key: string]: string } = {
       speaking: '/speaking',
       pronunciation: '/pronunciation',
@@ -110,6 +138,156 @@ const StudentDashboard = () => {
     }
   };
 
+  const handleCompleteAssignment = (assignmentId: string, type: string) => {
+    updateStudentProgress({
+      assignmentId,
+      studentId,
+      status: 'completed',
+      attempts: 1,
+      bestScore: 90,
+      timeSpent: 10
+    });
+    
+    toast({
+      title: "Assignment Completed!",
+      description: "Excellent! You can now access all other exercises.",
+    });
+  };
+
+  // Render priority assignment view if there's an uncompleted required assignment
+  if (hasUncompletedRequiredAssignment && priorityAssignment) {
+    return (
+      <AppLayout>
+        <div className="p-6 space-y-6">
+          {/* Priority Assignment Header */}
+          <div className="space-y-2">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              Required Assignment
+            </h1>
+            <p className="text-muted-foreground">
+              Complete this assignment to unlock your dashboard
+            </p>
+          </div>
+
+          {/* Assignment Requirement Alert */}
+          <Alert className="border-orange-200 bg-orange-50">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Your teacher has assigned a new task. Please complete it before accessing other activities.
+            </AlertDescription>
+          </Alert>
+
+          {/* Priority Assignment Card */}
+          <Card className="border-2 border-primary">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  {priorityAssignment.type === 'reflex' && <Zap className="h-5 w-5 text-yellow-500" />}
+                  {priorityAssignment.type === 'story' && <BookOpen className="h-5 w-5 text-blue-500" />}
+                  {priorityAssignment.type === 'puzzle' && <Puzzle className="h-5 w-5 text-green-500" />}
+                  {priorityAssignment.title}
+                </CardTitle>
+                <Badge variant="outline" className="bg-red-50 text-red-700">
+                  Required
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-muted/50 p-4 rounded-lg">
+                <p className="text-sm mb-3">{priorityAssignment.content}</p>
+                <div className="flex gap-2 text-sm text-muted-foreground">
+                  <span>By: {priorityAssignment.createdBy}</span>
+                  <span>•</span>
+                  <span>
+                    Due: {priorityAssignment.dueDate 
+                      ? new Date(priorityAssignment.dueDate).toLocaleDateString() 
+                      : 'No due date'
+                    }
+                  </span>
+                </div>
+              </div>
+
+              {priorityAssignment.type === 'reflex' && (
+                <div className="space-y-3">
+                  <Textarea
+                    placeholder="Type your response here..."
+                    rows={4}
+                    id={`priority-challenge-${priorityAssignment.id}`}
+                  />
+                  <Button 
+                    onClick={() => {
+                      const textarea = document.getElementById(`priority-challenge-${priorityAssignment.id}`) as HTMLTextAreaElement;
+                      handleSubmitReflexAnswer(priorityAssignment.id, textarea?.value || '');
+                    }}
+                    className="w-full"
+                    size="lg"
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    Submit Assignment
+                  </Button>
+                </div>
+              )}
+
+              {priorityAssignment.type === 'story' && (
+                <Button 
+                  onClick={() => navigate('/story')}
+                  className="w-full"
+                  size="lg"
+                >
+                  <Play className="h-4 w-4 mr-2" />
+                  Start Story Assignment
+                </Button>
+              )}
+
+              {priorityAssignment.type === 'puzzle' && (
+                <Button 
+                  onClick={() => navigate('/word-puzzle')}
+                  className="w-full"
+                  size="lg"
+                >
+                  <Play className="h-4 w-4 mr-2" />
+                  Solve Puzzle Assignment
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Locked Features Preview */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Lock className="h-5 w-5 text-muted-foreground" />
+                Locked Features
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {[
+                  { name: 'Speaking Practice', icon: Zap },
+                  { name: 'Vocabulary Trainer', icon: BookOpen },
+                  { name: 'Grammar Clinic', icon: Target },
+                  { name: 'Story Builder', icon: BookOpen },
+                  { name: 'Word Puzzles', icon: Puzzle },
+                  { name: 'Progress Tracking', icon: TrendingUp }
+                ].map((feature, index) => (
+                  <div key={index} className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg opacity-60">
+                    <feature.icon className="h-4 w-4" />
+                    <span className="text-sm">{feature.name}</span>
+                    <Lock className="h-3 w-3 ml-auto" />
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm text-muted-foreground mt-4 text-center">
+                Complete your assignment above to unlock these features
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // Normal dashboard view when no priority assignments
   return (
     <AppLayout>
       <div className="p-6 space-y-6">
@@ -214,7 +392,7 @@ const StudentDashboard = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {reflexChallenges.map((challenge) => {
-                    const progress = getStudentProgress(user?.username || '', challenge.id);
+                    const progress = getStudentProgress(studentId, challenge.id);
                     const isNew = new Date(challenge.createdAt) > new Date(Date.now() - 24 * 60 * 60 * 1000);
                     
                     return (
@@ -279,7 +457,7 @@ const StudentDashboard = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {stories.map((story) => {
-                    const progress = getStudentProgress(user?.username || '', story.id);
+                    const progress = getStudentProgress(studentId, story.id);
                     const isNew = new Date(story.createdAt) > new Date(Date.now() - 24 * 60 * 60 * 1000);
                     
                     return (
@@ -319,7 +497,7 @@ const StudentDashboard = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {puzzles.map((puzzle) => {
-                    const progress = getStudentProgress(user?.username || '', puzzle.id);
+                    const progress = getStudentProgress(studentId, puzzle.id);
                     const isNew = new Date(puzzle.createdAt) > new Date(Date.now() - 24 * 60 * 60 * 1000);
                     
                     return (

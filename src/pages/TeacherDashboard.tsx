@@ -22,9 +22,14 @@ import {
   Award,
   Plus,
   Eye,
-  Filter
+  Filter,
+  Edit,
+  Trash2,
+  Calendar,
+  Target
 } from "lucide-react";
 import { useAuth, MOCK_CLASSES, MOCK_SECTIONS } from "@/contexts/AuthContext";
+import { useAssignments } from "@/contexts/AssignmentContext";
 import { useToast } from "@/hooks/use-toast";
 
 // Mock student data
@@ -94,6 +99,15 @@ const MOCK_STUDENTS = [
 const TeacherDashboard = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { 
+    reflexAssignments, 
+    storyAssignments, 
+    puzzleAssignments,
+    createReflexAssignment,
+    createStoryAssignment,
+    createPuzzleAssignment
+  } = useAssignments();
+  
   const [selectedClass, setSelectedClass] = useState(user?.classes[0] || '');
   const [selectedSection, setSelectedSection] = useState(user?.sections[0] || '');
   const [sortBy, setSortBy] = useState('overall');
@@ -119,24 +133,43 @@ const TeacherDashboard = () => {
     return 'text-red-600 bg-red-50 border-red-200';
   };
 
+  // Assignment form states
   const [reflexQuestion, setReflexQuestion] = useState('');
+  const [reflexDueDate, setReflexDueDate] = useState('');
   const [storyTitle, setStoryTitle] = useState('');
   const [storyContent, setStoryContent] = useState('');
   const [puzzleTitle, setPuzzleTitle] = useState('');
   const [puzzleWords, setPuzzleWords] = useState('');
 
   const handleCreateReflexChallenge = () => {
-    if (!reflexQuestion.trim()) return;
+    if (!reflexQuestion.trim() || !selectedClass || !selectedSection) return;
+    
+    createReflexAssignment({
+      question: reflexQuestion,
+      assignedBy: user?.fullName || 'Teacher',
+      dueDate: reflexDueDate || 'No due date',
+      targetClass: selectedClass,
+      targetSection: selectedSection
+    });
     
     toast({
       title: "Reflex Challenge Created!",
       description: `Challenge assigned to ${selectedClass === 'all-classes' ? 'All Classes' : selectedClass} - Section ${selectedSection === 'all-sections' ? 'All' : selectedSection}`,
     });
     setReflexQuestion('');
+    setReflexDueDate('');
   };
 
   const handleCreateStory = () => {
-    if (!storyTitle.trim() || !storyContent.trim()) return;
+    if (!storyTitle.trim() || !storyContent.trim() || !selectedClass || !selectedSection) return;
+    
+    createStoryAssignment({
+      title: storyTitle,
+      content: storyContent,
+      assignedBy: user?.fullName || 'Teacher',
+      targetClass: selectedClass,
+      targetSection: selectedSection
+    });
     
     toast({
       title: "Story Created!",
@@ -147,7 +180,17 @@ const TeacherDashboard = () => {
   };
 
   const handleCreatePuzzle = () => {
-    if (!puzzleTitle.trim() || !puzzleWords.trim()) return;
+    if (!puzzleTitle.trim() || !puzzleWords.trim() || !selectedClass || !selectedSection) return;
+    
+    const wordsArray = puzzleWords.split(',').map(word => word.trim()).filter(word => word.length > 0);
+    
+    createPuzzleAssignment({
+      title: puzzleTitle,
+      words: wordsArray,
+      assignedBy: user?.fullName || 'Teacher',
+      targetClass: selectedClass,
+      targetSection: selectedSection
+    });
     
     toast({
       title: "Word Puzzle Created!",
@@ -156,6 +199,26 @@ const TeacherDashboard = () => {
     setPuzzleTitle('');
     setPuzzleWords('');
   };
+
+  // Get assignments for the selected class/section
+  const getFilteredAssignments = () => {
+    const filterAssignments = (assignments: any[]) => {
+      return assignments.filter(assignment => {
+        const classMatch = selectedClass === 'all-classes' || assignment.targetClass === selectedClass;
+        const sectionMatch = selectedSection === 'all-sections' || assignment.targetSection === selectedSection;
+        const teacherMatch = user?.classes.includes(assignment.targetClass) && user?.sections.includes(assignment.targetSection);
+        return classMatch && sectionMatch && teacherMatch;
+      });
+    };
+
+    return {
+      reflex: filterAssignments(reflexAssignments),
+      story: filterAssignments(storyAssignments),
+      puzzle: filterAssignments(puzzleAssignments)
+    };
+  };
+
+  const filteredAssignments = getFilteredAssignments();
 
   return (
     <AppLayout>
@@ -171,7 +234,7 @@ const TeacherDashboard = () => {
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Card>
             <CardContent className="flex items-center p-6">
               <Users className="h-8 w-8 text-blue-600 mr-3" />
@@ -192,30 +255,40 @@ const TeacherDashboard = () => {
           </Card>
           <Card>
             <CardContent className="flex items-center p-6">
-              <Clock className="h-8 w-8 text-green-600 mr-3" />
+              <Zap className="h-8 w-8 text-purple-600 mr-3" />
               <div>
-                <p className="text-2xl font-bold">{Math.round(filteredStudents.reduce((sum, s) => sum + s.timeSpent, 0) / filteredStudents.length || 0)}m</p>
-                <p className="text-sm text-muted-foreground">Avg Study Time</p>
+                <p className="text-2xl font-bold">{filteredAssignments.reflex.length}</p>
+                <p className="text-sm text-muted-foreground">Reflex Challenges</p>
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="flex items-center p-6">
-              <TrendingUp className="h-8 w-8 text-purple-600 mr-3" />
+              <BookOpen className="h-8 w-8 text-green-600 mr-3" />
               <div>
-                <p className="text-2xl font-bold">{user?.classes.length}</p>
-                <p className="text-sm text-muted-foreground">Your Classes</p>
+                <p className="text-2xl font-bold">{filteredAssignments.story.length}</p>
+                <p className="text-sm text-muted-foreground">Story Assignments</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex items-center p-6">
+              <Puzzle className="h-8 w-8 text-orange-600 mr-3" />
+              <div>
+                <p className="text-2xl font-bold">{filteredAssignments.puzzle.length}</p>
+                <p className="text-sm text-muted-foreground">Word Puzzles</p>
               </div>
             </CardContent>
           </Card>
         </div>
 
         <Tabs defaultValue="performance" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="performance">Student Performance</TabsTrigger>
             <TabsTrigger value="reflex">Reflex Challenges</TabsTrigger>
             <TabsTrigger value="stories">Story Builder</TabsTrigger>
             <TabsTrigger value="puzzles">Word Puzzles</TabsTrigger>
+            <TabsTrigger value="assignments">Manage Assignments</TabsTrigger>
           </TabsList>
 
           {/* Student Performance Tab */}
@@ -420,7 +493,7 @@ const TeacherDashboard = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <Label>Target Class</Label>
                     <Select value={selectedClass} onValueChange={setSelectedClass}>
@@ -450,6 +523,14 @@ const TeacherDashboard = () => {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div>
+                    <Label>Due Date</Label>
+                    <Input
+                      type="date"
+                      value={reflexDueDate}
+                      onChange={(e) => setReflexDueDate(e.target.value)}
+                    />
                   </div>
                 </div>
                 <div>
@@ -601,6 +682,113 @@ const TeacherDashboard = () => {
                 </Button>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Manage Assignments Tab */}
+          <TabsContent value="assignments" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Active Reflex Challenges */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Zap className="h-5 w-5" />
+                    Active Reflex Challenges
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {filteredAssignments.reflex.map((challenge) => (
+                    <div key={challenge.id} className="border rounded-lg p-3 space-y-2">
+                      <div className="flex justify-between items-start">
+                        <p className="font-medium text-sm">{challenge.question.substring(0, 50)}...</p>
+                        <Badge variant="outline">{challenge.status}</Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        <p>{challenge.targetClass} - Section {challenge.targetSection}</p>
+                        <p>Due: {challenge.dueDate}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm">
+                          <Edit className="h-3 w-3 mr-1" />
+                          Edit
+                        </Button>
+                        <Button variant="outline" size="sm">
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Active Story Assignments */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="h-5 w-5" />
+                    Active Story Assignments
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {filteredAssignments.story.map((story) => (
+                    <div key={story.id} className="border rounded-lg p-3 space-y-2">
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-medium text-sm">{story.title}</h4>
+                        <Badge variant="outline">{story.status}</Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        <p>{story.targetClass} - Section {story.targetSection}</p>
+                        <p>Created: {new Date(story.createdAt).toLocaleDateString()}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm">
+                          <Edit className="h-3 w-3 mr-1" />
+                          Edit
+                        </Button>
+                        <Button variant="outline" size="sm">
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Active Puzzle Assignments */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Puzzle className="h-5 w-5" />
+                    Active Word Puzzles
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {filteredAssignments.puzzle.map((puzzle) => (
+                    <div key={puzzle.id} className="border rounded-lg p-3 space-y-2">
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-medium text-sm">{puzzle.title}</h4>
+                        <Badge variant="outline">{puzzle.words.length} words</Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        <p>{puzzle.targetClass} - Section {puzzle.targetSection}</p>
+                        <p>Best Score: {puzzle.bestScore}%</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm">
+                          <Edit className="h-3 w-3 mr-1" />
+                          Edit
+                        </Button>
+                        <Button variant="outline" size="sm">
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>

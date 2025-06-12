@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -147,10 +146,10 @@ export default function Reflex() {
       )}
 
       <ChallengeSession 
-        prompt={assignment?.content || "Default reflex challenge for practice"}
-        timeLimit={assignment?.metadata?.timeLimit || 300}
         onComplete={isAssignmentMode ? handleChallengeComplete : undefined}
         isAssignment={isAssignmentMode}
+        assignmentPrompt={assignment?.content}
+        timeLimit={assignment?.metadata?.timeLimit}
       />
     </div>
   );

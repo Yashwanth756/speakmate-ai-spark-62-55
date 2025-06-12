@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Mic, MicOff, Volume2, Play, Pause } from "lucide-react";
-import { SessionData } from "@/pages/Reflex";
+import { SessionData } from "@/types/reflex";
 
 interface ShadowModeProps {
   onSessionEnd: (data: SessionData) => void;

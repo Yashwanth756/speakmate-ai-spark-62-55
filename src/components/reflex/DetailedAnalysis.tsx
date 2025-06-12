@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +7,7 @@ import {
   ArrowLeft, Target, Clock, Brain, CheckCircle, XCircle, 
   TrendingUp, Award, BookOpen, Lightbulb 
 } from "lucide-react";
-import { SessionData } from "@/pages/Reflex";
+import { SessionData } from "@/types/reflex";
 
 interface DetailedAnalysisProps {
   sessionData: SessionData;
@@ -159,7 +158,7 @@ export const DetailedAnalysis: React.FC<DetailedAnalysisProps> = ({
                     <p className="text-sm italic">{response.prompt}</p>
                   </div>
                   
-                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 mb-3">
+                  <div className="bg-blue-50 dark:bg-blue-900 rounded-lg p-3 mb-3">
                     <p className="text-sm font-medium mb-1">Your Response:</p>
                     <p className="text-sm">{response.response}</p>
                   </div>

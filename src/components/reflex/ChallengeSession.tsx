@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Mic, MicOff, Clock, ArrowLeft, Play, Square } from "lucide-react";
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { getLanguageFeedback } from "@/lib/gemini-api";
-import { SessionData } from "@/pages/Reflex";
+import { SessionData } from "@/types/reflex";
 
 interface Challenge {
   id: string;
@@ -19,9 +18,10 @@ interface Challenge {
 }
 
 interface ChallengeSessionProps {
-  challenge: Challenge;
-  onSessionComplete: (data: SessionData) => void;
-  onBack: () => void;
+  onComplete?: (score: number, timeSpent: number) => void;
+  isAssignment?: boolean;
+  assignmentPrompt?: string;
+  timeLimit?: number;
 }
 
 const challengeQuestions = {
@@ -84,12 +84,13 @@ const challengeQuestions = {
 };
 
 export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
-  challenge,
-  onSessionComplete,
-  onBack
+  onComplete,
+  isAssignment = false,
+  assignmentPrompt,
+  timeLimit = 300
 }) => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(30);
+  const [timeLeft, setTimeLeft] = useState(timeLimit);
   const [isRecording, setIsRecording] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [responses, setResponses] = useState<any[]>([]);
@@ -209,7 +210,7 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
     const totalTime = (Date.now() - sessionStartTime) / 1000;
     
     try {
-      // Create comprehensive analysis prompt with all questions and answers
+      // Create comprehensive analysis prompt with all questions and responses
       const comprehensiveAnalysisPrompt = `
         Analyze this complete English speaking session with ${totalQuestions} questions and responses.
         Provide detailed analysis for each response and overall performance.
@@ -274,7 +275,7 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
       };
 
       console.log("Session analysis complete, transitioning to results...");
-      onSessionComplete(sessionData);
+      onComplete && onComplete(overallScores.finalScore, totalTime);
     } catch (error) {
       console.error("Error generating comprehensive analysis:", error);
       // Provide fallback analysis
@@ -294,7 +295,7 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
         }
       };
       
-      onSessionComplete(sessionData);
+      onComplete && onComplete(Math.round(averageAccuracy), totalTime);
     }
   };
 

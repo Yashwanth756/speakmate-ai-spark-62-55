@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, Puzzle, Clock, ArrowLeft } from "lucide-react";
-import { VocabularyArcade } from "@/components/word-puzzle/VocabularyArcade";
+import VocabularyArcade from "@/components/word-puzzle/VocabularyArcade";
 import { useAssignment } from "@/hooks/use-assignment";
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';

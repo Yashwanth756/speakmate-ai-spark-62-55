@@ -14,7 +14,7 @@ export interface User {
 
 export interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string, role: UserRole) => Promise<boolean>;
   logout: () => void;
   register: (userData: RegisterData) => Promise<boolean>;
   isAuthenticated: boolean;
@@ -70,9 +70,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string, role: UserRole): Promise<boolean> => {
     // Simulate API call
-    const foundUser = MOCK_USERS.find(u => u.email === email);
+    const foundUser = MOCK_USERS.find(u => u.email === email && u.role === role);
     
     if (foundUser) {
       setUser(foundUser);
@@ -111,10 +111,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Add to mock database
     MOCK_USERS.push(newUser);
-    
-    // Clear any existing performance data for this user
-    const performanceResetEvent = new CustomEvent('resetUserData', { detail: { userId: newUser.id } });
-    window.dispatchEvent(performanceResetEvent);
     
     return true;
   };

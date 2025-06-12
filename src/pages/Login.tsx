@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,7 +41,7 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      const success = await login(email, password);
+      const success = await login(email, password, 'student');
       
       if (success) {
         toast({

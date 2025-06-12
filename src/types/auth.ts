@@ -6,4 +6,6 @@ export interface User {
   role: 'student' | 'teacher';
   class?: string;
   section?: string;
+  classes?: string[];
+  sections?: string[];
 }

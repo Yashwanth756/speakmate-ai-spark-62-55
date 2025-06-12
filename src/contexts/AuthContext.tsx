@@ -1,5 +1,9 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '@/types/auth';
+
+export const MOCK_CLASSES = ['Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10'];
+export const MOCK_SECTIONS = ['A', 'B', 'C', 'D'];
 
 interface AuthContextType {
   user: User | null;
@@ -7,6 +11,7 @@ interface AuthContextType {
   logout: () => void;
   register: (userData: Omit<User, 'id'> & { password: string }) => Promise<boolean>;
   isLoading: boolean;
+  isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -21,7 +26,7 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -31,7 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     // Simulate API call
     return new Promise((resolve) => {
@@ -41,8 +46,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email: email,
           fullName: 'John Doe',
           role: 'student',
-          class: 'A',
-          section: '1'
+          class: 'Class 8',
+          section: 'A'
         };
         setUser(mockUser);
         localStorage.setItem('user', JSON.stringify(mockUser));
@@ -52,7 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  const register = async (userData: Omit<User, 'id'> & { password: string }) => {
+  const register = async (userData: Omit<User, 'id'> & { password: string }): Promise<boolean> => {
     setIsLoading(true);
     // Simulate API call
     return new Promise((resolve) => {
@@ -61,9 +66,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           id: '2',
           email: userData.email,
           fullName: userData.fullName,
-          role: 'student',
+          role: userData.role,
           class: userData.class,
-          section: userData.section
+          section: userData.section,
+          classes: userData.classes,
+          sections: userData.sections
         };
         setUser(mockUser);
         localStorage.setItem('user', JSON.stringify(mockUser));
@@ -83,7 +90,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     login,
     logout,
     register,
-    isLoading
+    isLoading,
+    isAuthenticated: !!user
   };
 
   return (

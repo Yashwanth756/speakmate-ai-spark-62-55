@@ -22,7 +22,19 @@ interface ChallengeSessionProps {
   isAssignment?: boolean;
   assignmentPrompt?: string;
   timeLimit?: number;
+  onBack?: () => void;
 }
+
+// Default challenge configuration
+const defaultChallenge: Challenge = {
+  id: "ai-debate",
+  title: "AI Debate Challenge",
+  description: "Express your thoughts clearly and persuasively",
+  icon: "🗣️",
+  skill: "Argumentation & Critical Thinking",
+  color: "bg-red-500",
+  difficulty: "Advanced"
+};
 
 const challengeQuestions = {
   "ai-debate": [
@@ -87,7 +99,8 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
   onComplete,
   isAssignment = false,
   assignmentPrompt,
-  timeLimit = 300
+  timeLimit = 300,
+  onBack
 }) => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [timeLeft, setTimeLeft] = useState(timeLimit);
@@ -101,9 +114,16 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
 
   const { transcript, startListening, stopListening, resetTranscript, isListening } = useSpeechRecognition();
 
+  // Use the default challenge
+  const challenge = defaultChallenge;
   const questions = challengeQuestions[challenge.id as keyof typeof challengeQuestions] || [];
   const totalQuestions = 5;
   const timePerQuestion = challenge.id === "quick-fire" ? 10 : 30;
+
+  // Default onBack function if not provided
+  const handleBack = onBack || (() => {
+    window.history.back();
+  });
 
   useEffect(() => {
     setTimeLeft(timePerQuestion);
@@ -373,7 +393,7 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
         
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
-          <Button onClick={onBack} variant="outline" size="sm">
+          <Button onClick={handleBack} variant="outline" size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>

@@ -29,8 +29,8 @@ function App() {
   return (
     <AuthProvider>
       <AssignmentProvider>
-        <ConversationProvider>
-          <Router>
+        <Router>
+          <ConversationProvider>
             <div className="min-h-screen bg-background text-foreground">
               <Routes>
                 <Route path="/" element={<Index />} />
@@ -55,8 +55,8 @@ function App() {
               </Routes>
               <Toaster />
             </div>
-          </Router>
-        </ConversationProvider>
+          </ConversationProvider>
+        </Router>
       </AssignmentProvider>
     </AuthProvider>
   );

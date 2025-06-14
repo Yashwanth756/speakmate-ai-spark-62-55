@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Bell, Search, Menu, LogOut, Settings, User, Moon, Sun } from "lucide-react";
+import { Search, Menu, LogOut, Settings, User, Moon, Sun } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -100,11 +100,7 @@ export function DashboardHeader({ onMenuClick, userName = "User", userEmail = "u
             {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </Button>
 
-          {/* Notifications */}
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5" />
-            <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full text-xs"></span>
-          </Button>
+          {/* Removed notifications bell icon button here */}
 
           {/* User Profile Dropdown */}
           <DropdownMenu>
@@ -149,3 +145,4 @@ export function DashboardHeader({ onMenuClick, userName = "User", userEmail = "u
     </header>
   );
 }
+

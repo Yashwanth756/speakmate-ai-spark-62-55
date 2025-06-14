@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -154,17 +153,29 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
 
     const responseTime = (Date.now() - questionStartTime) / 1000;
 
-    // Get the user's response - prioritize currentTranscript as it's more up-to-date
-    let userResponse = currentTranscript.trim() || transcript.trim() || "No response recorded";
+    // Immediately get THE LATEST transcript string directly.
+    // Prioritize local state (currentTranscript) if it has content, else from hook transcript, else fallback.
+    // This avoids closure issues!
+    let latestTranscript = currentTranscript?.trim() ?? "";
+    if (!latestTranscript) {
+      latestTranscript = transcript?.trim() ?? "";
+    }
 
-    // Save the transcript for this question
+    let userResponse = latestTranscript || "";
+
+    // Only fall back to default if both are empty
+    if (!userResponse) {
+      userResponse = "No response recorded";
+    }
+
+    // Save the actual transcript for this question
     setSavedTranscripts(prev => {
       const updated = [...prev];
-      updated[currentQuestion] = userResponse;
+      updated[currentQuestion] = userResponse; // always save actual response!
       return updated;
     });
 
-    // Create response data
+    // Create response data with user response
     const responseData = {
       question: questions[currentQuestion],
       original: userResponse,
@@ -186,13 +197,13 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
       return updated;
     });
 
-    // Proceed to next question or complete
+    // Continue rest of logic (question advance or session complete)
     if (currentQuestion < totalQuestions - 1) {
       setCurrentQuestion(currentQuestion + 1);
       setTimeLeft(timePerQuestion);
       setIsAnalyzing(false);
     } else {
-      // Session complete: do Gemini bulk analysis
+      // Session complete: send analysis with all actual responses
       await completeSessionWithDetailedAnalysis(
         [...responses.slice(0, totalQuestions - 1), responseData],
         [...savedTranscripts.slice(0, totalQuestions - 1), userResponse]
@@ -403,7 +414,7 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-lg mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-600 rounded-lg border border-blue-200 dark:border-gray-600">
+            <div className="text-lg mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-600 rounded-lg border border-blue-200 dark:border-blue-700">
               {questions[currentQuestion]}
             </div>
             

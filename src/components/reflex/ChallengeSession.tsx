@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from "react";
+
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Mic, MicOff, Clock, ArrowLeft, Play, Square } from "lucide-react";
+import { Mic, MicOff, ArrowLeft, Play, Square } from "lucide-react";
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
-import { getLanguageFeedback } from "@/lib/gemini-api";
+import { getLanguageFeedback, sendMessageToGemini } from "@/lib/gemini-api";
 import { SessionData } from "@/pages/Reflex";
 
 interface Challenge {
@@ -74,133 +74,226 @@ const challengeQuestions = {
   ]
 };
 
-const ChallengeSession: React.FC<ChallengeSessionProps> = ({ challenge, onSessionComplete, onBack }) => {
+const QUESTION_TIME_LIMIT = 30; // seconds
+
+const ChallengeSession: React.FC<ChallengeSessionProps> = ({
+  challenge,
+  onSessionComplete,
+  onBack
+}) => {
+  const questions = challengeQuestions[challenge.id as keyof typeof challengeQuestions] || [];
   const [questionIndex, setQuestionIndex] = useState(0);
   const [userResponse, setUserResponse] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [startTime, setStartTime] = useState(0);
-  const [responseTime, setResponseTime] = useState(0);
+  const [elapsedTime, setElapsedTime] = useState(0);
   const [sessionResponses, setSessionResponses] = useState<SessionData["responses"]>([]);
   const [totalSessionTime, setTotalSessionTime] = useState(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [timerId, setTimerId] = useState<NodeJS.Timeout | null>(null);
   const { transcript, isListening, supported, startListening, stopListening, resetTranscript } = useSpeechRecognition();
-  const [showMicError, setShowMicError] = useState(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const questions = challengeQuestions[challenge.id as keyof typeof challengeQuestions];
-
-  useEffect(() => {
-    if (!supported) {
-      console.warn("Speech recognition not supported in this browser.");
-    }
-  }, [supported]);
-
+  // Start live transcription when recording starts
   useEffect(() => {
     if (isRecording) {
+      resetTranscript();
       startListening();
       setStartTime(Date.now());
-      setResponseTime(0);
+      setElapsedTime(0);
 
-      intervalRef.current = setInterval(() => {
-        setResponseTime((Date.now() - startTime) / 1000);
+      // Start timer for updating elapsedTime
+      const intervalId = setInterval(() => {
+        setElapsedTime((Date.now() - startTime) / 1000);
       }, 100);
+      setTimerId(intervalId);
+
+      // Start 30 second timeout for the question
+      const timeoutId = setTimeout(() => {
+        handleAutoSubmit();
+      }, QUESTION_TIME_LIMIT * 1000);
+
+      // Save timeoutId in ref for clearing if needed
+      (timerId as any)?.timeoutId && clearTimeout((timerId as any).timeoutId);
+      (intervalId as any).timeoutId = timeoutId;
+      setTimerId(intervalId);
     } else {
       stopListening();
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+      if (timerId) {
+        clearInterval(timerId);
+        if ((timerId as any).timeoutId) clearTimeout((timerId as any).timeoutId);
       }
     }
-
+    // Cleanup
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+      stopListening();
+      if (timerId) {
+        clearInterval(timerId);
+        if ((timerId as any).timeoutId) clearTimeout((timerId as any).timeoutId);
       }
     };
-  }, [isRecording, startListening, stopListening, startTime]);
+    // eslint-disable-next-line
+  }, [isRecording]);
 
+  // Sync userResponse with transcript
   useEffect(() => {
     setUserResponse(transcript);
   }, [transcript]);
 
-  const handleStartRecording = () => {
-    setIsRecording(true);
-    resetTranscript();
+  // Prevent manual changes to transcript field: only from speech recognition.
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    // do nothing (makes textarea read-only)
   };
 
-  const handleStopRecording = async () => {
-    setIsRecording(false);
-    clearInterval(intervalRef.current as NodeJS.Timeout);
+  // Start recording (begin question)
+  const handleStartRecording = useCallback(() => {
+    setElapsedTime(0);
+    setIsRecording(true);
+    resetTranscript();
+  }, [resetTranscript]);
 
-    if (!userResponse.trim()) {
-      alert("Please provide a response before submitting.");
-      return;
-    }
+  // Core: Used for both auto and manual stop
+  const finishRecordingAndSave = useCallback(
+    async (autoSubmit = false) => {
+      setIsRecording(false);
+      if (timerId) {
+        clearInterval(timerId);
+        if ((timerId as any).timeoutId) clearTimeout((timerId as any).timeoutId);
+      }
+      setIsAnalyzing(true);
 
-    setIsAnalyzing(true);
+      const prompt = questions[questionIndex];
 
-    try {
-      const prompt = questions ? questions[questionIndex] : "Respond to the prompt.";
-      const responseTimeInSeconds = (Date.now() - startTime) / 1000;
-      const feedback = await getLanguageFeedback(prompt, userResponse);
+      let responseText = userResponse.trim();
+      let feedback: any;
+      let answerSuggestion: string | undefined = undefined;
+      let grammarScore = 0,
+        vocabularyScore = 0,
+        fluencyScore = 0;
 
+      // If no response – fetch suggestion from Gemini
+      if (!responseText) {
+        // Assign 0 for the scores, and get a sample answer from AI
+        try {
+          answerSuggestion = await sendMessageToGemini(
+            `Please provide a sample answer in good English for the following prompt as a student's answer only: "${prompt}"`,
+            "reflex-challenge"
+          );
+        } catch (err) {
+          answerSuggestion = "Sorry, no suggestion available right now.";
+        }
+      }
+
+      // Always get feedback for consistency (if no answer, feedback will be for the suggestion)
+      try {
+        // Use user response if present, otherwise the suggestion for feedback
+        const analyzedText = responseText || answerSuggestion || "";
+        feedback = await getLanguageFeedback(analyzedText);
+
+        grammarScore = feedback.grammarScore ?? 0;
+        vocabularyScore = feedback.vocabularyScore ?? 0;
+        fluencyScore = feedback.fluencyScore ?? 0;
+      } catch (error) {
+        feedback = {
+          feedback: "Could not analyze your response.",
+          grammarScore: 0,
+          vocabularyScore: 0,
+          fluencyScore: 0
+        };
+      }
+
+      // "Accuracy" is just an average of the 3 scores for now.
+      const accuracy =
+        responseText ? Math.round((grammarScore + vocabularyScore + fluencyScore) / 3) : 0;
+
+      // Save this response
       setSessionResponses(prev => [
         ...prev,
         {
-          prompt: prompt,
-          response: userResponse,
-          responseTime: responseTimeInSeconds,
-          accuracy: feedback.accuracy,
-          fluency: feedback.fluency,
-          confidence: feedback.confidence,
-          grammarErrors: feedback.grammarErrors,
-          vocabularyScore: feedback.vocabularyScore,
-          pronunciationScore: feedback.pronunciationScore,
-          detailedFeedback: feedback.detailedFeedback
+          prompt,
+          response: responseText || "(No response provided)",
+          responseTime: elapsedTime,
+          accuracy: accuracy,
+          fluency: fluencyScore,
+          confidence: fluencyScore, // placeholder, for future improvement
+          grammarErrors: [], // placeholder, no info from Gemini
+          vocabularyScore: vocabularyScore,
+          pronunciationScore: fluencyScore, // placeholder, no real pronunciation eval
+          detailedFeedback: feedback.feedback,
+          aiSuggestedAnswer: !responseText && answerSuggestion ? answerSuggestion : undefined
         }
       ]);
+      setTotalSessionTime(prev => prev + elapsedTime);
 
-      setTotalSessionTime(prev => prev + responseTimeInSeconds);
       resetTranscript();
-      if (questions && questionIndex < questions.length - 1) {
-        setQuestionIndex(prev => prev + 1);
-      } else {
-        // Session complete - aggregate and send data
-        const accuracySum = sessionResponses.reduce((acc, res) => acc + res.accuracy, 0);
-        const fluencySum = sessionResponses.reduce((acc, res) => acc + res.fluency, 0);
-        const confidenceSum = sessionResponses.reduce((acc, res) => acc + res.confidence, 0);
+      setUserResponse("");
 
-        const averageAccuracy = accuracySum / sessionResponses.length;
-        const averageFluency = fluencySum / sessionResponses.length;
-        const averageConfidence = confidenceSum / sessionResponses.length;
+      setTimeout(() => {
+        setIsAnalyzing(false);
+        // Next question or finish
+        if (questionIndex < questions.length - 1) {
+          setQuestionIndex(prev => prev + 1);
+          setElapsedTime(0);
+          setIsRecording(false);
+        } else {
+          // Calculate overall stats and finish
+          const responses = [
+            ...sessionResponses,
+            {
+              prompt,
+              response: responseText || "(No response provided)",
+              responseTime: elapsedTime,
+              accuracy: accuracy,
+              fluency: fluencyScore,
+              confidence: fluencyScore,
+              grammarErrors: [],
+              vocabularyScore: vocabularyScore,
+              pronunciationScore: fluencyScore,
+              detailedFeedback: feedback.feedback,
+              aiSuggestedAnswer: !responseText && answerSuggestion ? answerSuggestion : undefined
+            }
+          ];
 
-        // Mock overall analysis (replace with actual logic later)
-        const overallAnalysis = {
-          strengths: ["Good vocabulary", "Clear pronunciation"],
-          weaknesses: ["Grammar errors", "Hesitations"],
-          recommendations: ["Practice verb tenses", "Speak slower"],
-          overallGrade: "B+"
-        };
+          const accuracySum = responses.reduce((acc, res) => acc + (res.accuracy || 0), 0);
+          const fluencySum = responses.reduce((acc, res) => acc + (res.fluency || 0), 0);
+          const confidenceSum = responses.reduce((acc, res) => acc + (res.confidence || 0), 0);
+          const averageAccuracy = accuracySum / responses.length;
+          const averageFluency = fluencySum / responses.length;
+          const averageConfidence = confidenceSum / responses.length;
 
-        const sessionData: SessionData = {
-          mode: challenge.title,
-          responses: sessionResponses,
-          totalTime: totalSessionTime,
-          streak: 5,
-          score: Math.round((averageAccuracy + averageFluency + averageConfidence) / 3),
-          overallAnalysis: overallAnalysis
-        };
+          const sessionData: SessionData = {
+            mode: challenge.title,
+            responses: responses,
+            totalTime: totalSessionTime + elapsedTime,
+            streak: 5,
+            score: Math.round((averageAccuracy + averageFluency + averageConfidence) / 3),
+            overallAnalysis: {
+              strengths: ["Good vocabulary", "Clear pronunciation"],
+              weaknesses: ["Grammar errors", "Hesitations"],
+              recommendations: ["Practice verb tenses", "Speak slower"],
+              overallGrade: "B+"
+            }
+          };
+          onSessionComplete(sessionData);
+        }
+      }, 600); // feedback transition
+    },
+    // eslint-disable-next-line
+    [elapsedTime, questionIndex, userResponse, questions, challenge.title, sessionResponses, totalSessionTime]
+  );
 
-        onSessionComplete(sessionData);
-      }
-    } catch (error) {
-      console.error("Error analyzing response:", error);
-      alert("Failed to analyze response. Please try again.");
-    } finally {
-      setIsAnalyzing(false);
-    }
+  // Manual stop recording
+  const handleStopRecording = () => {
+    finishRecordingAndSave(false);
   };
 
-  const currentQuestion = questions ? questions[questionIndex] : "No question available.";
+  // Called automatically after 30 sec if not submitted early
+  const handleAutoSubmit = () => {
+    setIsRecording(false);
+    finishRecordingAndSave(true);
+  };
+
+  const currentQuestion = questions && questions[questionIndex] ? questions[questionIndex] : "No question available.";
+  const secondsLeft = Math.max(0, QUESTION_TIME_LIMIT - Math.round(elapsedTime));
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-accent/5 to-primary/10 p-4">
@@ -225,16 +318,20 @@ const ChallengeSession: React.FC<ChallengeSessionProps> = ({ challenge, onSessio
 
               <div className="mb-4">
                 <label htmlFor="userResponse" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Your Response:
+                  Your Response: <span className="ml-3 text-red-500">{secondsLeft}s</span>
                 </label>
                 <textarea
                   id="userResponse"
                   value={userResponse}
-                  onChange={(e) => setUserResponse(e.target.value)}
+                  onChange={handleTextareaChange}
                   rows={4}
+                  readOnly
                   className="shadow-sm focus:ring-primary focus:border-primary mt-1 block w-full sm:text-sm border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  placeholder="Speak or type your response here..."
-                  disabled={isRecording || isAnalyzing}
+                  placeholder="Speak to answer. Live transcription will appear here..."
+                  disabled
+                  aria-readonly
+                  tabIndex={-1}
+                  style={{ userSelect: "none", pointerEvents: "none", backgroundColor: "#f3f4f6" }}
                 />
               </div>
 
@@ -243,7 +340,7 @@ const ChallengeSession: React.FC<ChallengeSessionProps> = ({ challenge, onSessio
                   {isRecording ? (
                     <div className="text-red-500 font-semibold">
                       <Mic className="inline-block align-middle mr-1 animate-pulse" />
-                      Recording... ({responseTime.toFixed(1)}s)
+                      Recording... ({elapsedTime.toFixed(1)}s)
                     </div>
                   ) : (
                     <div className="text-gray-500">
@@ -281,3 +378,5 @@ const ChallengeSession: React.FC<ChallengeSessionProps> = ({ challenge, onSessio
 };
 
 export { ChallengeSession };
+
+// src/components/reflex/ChallengeSession.tsx is now quite long. Consider refactoring into smaller components for readability and maintainability.

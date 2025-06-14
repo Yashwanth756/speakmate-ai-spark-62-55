@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,6 +37,15 @@ export interface SessionData {
     weaknesses: string[];
     recommendations: string[];
     overallGrade: string;
+  };
+  metrics: {
+    pronunciation: number;
+    fluency: number;
+    vocabulary: number;
+    precision: number;
+    accuracy: number;
+    speed: number;
+    totalTime: number;
   };
 }
 

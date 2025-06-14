@@ -6,6 +6,7 @@ import { Mic, MicOff, Clock, ArrowLeft, Play, Square } from "lucide-react";
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { getLanguageFeedback } from "@/lib/gemini-api";
 import { SessionData } from "@/pages/Reflex";
+import { getGradeFromScore } from "@/lib/utils";
 
 interface Challenge {
   id: string;

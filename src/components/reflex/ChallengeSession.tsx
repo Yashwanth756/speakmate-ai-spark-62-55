@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+
+import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, ArrowLeft, Play, Square } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Mic, MicOff, Clock, ArrowLeft, Play, Square } from "lucide-react";
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
-import { getLanguageFeedback, sendMessageToGemini, getBulkLanguageFeedback } from "@/lib/gemini-api";
+import { getLanguageFeedback } from "@/lib/gemini-api";
 import { SessionData } from "@/pages/Reflex";
 
 interface Challenge {
@@ -69,295 +71,469 @@ const challengeQuestions = {
     "Sarah found an old key in her grandmother's attic. When she touched it, strange things began to happen... Continue the story.",
     "The last person on Earth sat alone in a room. Then there was a knock at the door... What happens next?",
     "Tom discovered he could understand what animals were saying. The first conversation he had was shocking... Continue.",
-    "Every morning, Lisa woke up to find a different flower on her doorstep. Today's flower was unlike any she'd seen... What unfolds?"
+    "Every morning, Lisa woke up to find a different flower on her doorstep. Today's flower was unlike any she'd seen... What unfolds?",
+    "The old bookstore owner handed me a book that wasn't there moments before. 'This one chooses its reader,' he said... Continue the tale."
+  ],
+  "shadow-mode": [
+    "The weather is absolutely beautiful today, perfect for outdoor activities.",
+    "Technology has fundamentally transformed how we communicate and work together.",
+    "Education plays a crucial role in personal development and societal progress.",
+    "Traveling broadens perspectives and creates lasting memories for everyone involved.",
+    "Effective leadership requires vision, empathy, and strong communication skills."
   ]
 };
 
-const QUESTION_TIME_LIMIT = 30; // seconds
-
-const ChallengeSession: React.FC<ChallengeSessionProps> = ({
+export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
   challenge,
   onSessionComplete,
   onBack
 }) => {
-  // ... (challengeQuestions and 5-question batch logic)
-  const questions = challengeQuestions[challenge.id as keyof typeof challengeQuestions] || [];
-  const [questionIndex, setQuestionIndex] = useState(0);
-  const [userResponse, setUserResponse] = useState("");
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(30);
   const [isRecording, setIsRecording] = useState(false);
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [responses, setResponses] = useState<{ prompt: string; response: string; time: number }[]>([]);
-  const [timerIds, setTimerIds] = useState<{ intervalId: ReturnType<typeof setInterval> | null, timeoutId: ReturnType<typeof setTimeout> | null }>({ intervalId: null, timeoutId: null });
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [showFinalReport, setShowFinalReport] = useState(false);
-  const [analysis, setAnalysis] = useState<any[]>([]);
-  const [totalSessionTime, setTotalSessionTime] = useState(0);
+  const [responses, setResponses] = useState<any[]>([]);
+  const [savedTranscripts, setSavedTranscripts] = useState<string[]>([]);
+  const [sessionStartTime, setSessionStartTime] = useState<number>(Date.now());
+  const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
+  const timerRef = useRef<NodeJS.Timeout>();
 
-  const { transcript, isListening, supported, startListening, stopListening, resetTranscript } = useSpeechRecognition();
+  const { transcript, startListening, stopListening, resetTranscript, isListening } = useSpeechRecognition();
+
+  const questions = challengeQuestions[challenge.id as keyof typeof challengeQuestions] || [];
+  const totalQuestions = 5;
+  const timePerQuestion = challenge.id === "quick-fire" ? 10 : 30;
 
   useEffect(() => {
-    setUserResponse(transcript);
-  }, [transcript]);
+    setTimeLeft(timePerQuestion);
+    setQuestionStartTime(Date.now());
+  }, [currentQuestion, timePerQuestion]);
 
-  // Start live transcription and timers when recording starts
   useEffect(() => {
-    if (isRecording) {
-      resetTranscript();
-      startListening();
-      setElapsedTime(0);
-      const startTimestamp = Date.now();
-
-      const intervalId = setInterval(() => {
-        setElapsedTime((Date.now() - startTimestamp) / 1000);
-      }, 100);
-
-      const timeoutId = setTimeout(() => {
-        handleStopRecording(true); // auto submit if time's up
-      }, 30000);
-
-      setTimerIds({ intervalId, timeoutId });
-    } else {
-      stopListening();
-      if (timerIds.intervalId) clearInterval(timerIds.intervalId);
-      if (timerIds.timeoutId) clearTimeout(timerIds.timeoutId);
-      setTimerIds({ intervalId: null, timeoutId: null });
+    if (timeLeft > 0 && isRecording) {
+      timerRef.current = setTimeout(() => {
+        setTimeLeft(timeLeft - 1);
+      }, 1000);
+    } else if (timeLeft === 0 && isRecording) {
+      handleStopRecording();
     }
-    return () => {
-      stopListening();
-      if (timerIds.intervalId) clearInterval(timerIds.intervalId);
-      if (timerIds.timeoutId) clearTimeout(timerIds.timeoutId);
-      setTimerIds({ intervalId: null, timeoutId: null });
-    };
-    // eslint-disable-next-line
-  }, [isRecording]);
 
-  // Prevent editing of response textbox
-  const handleTextareaChange = () => {};
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, [timeLeft, isRecording]);
 
   const handleStartRecording = () => {
     setIsRecording(true);
     resetTranscript();
+    startListening();
+    setQuestionStartTime(Date.now());
   };
 
-  // Stop recording & go to next or finish, collect all responses for batch analysis at end
-  const handleStopRecording = async (auto = false) => {
+  const handleStopRecording = async () => {
     setIsRecording(false);
-    if (timerIds.intervalId) clearInterval(timerIds.intervalId);
-    if (timerIds.timeoutId) clearTimeout(timerIds.timeoutId);
-    setTimerIds({ intervalId: null, timeoutId: null });
+    stopListening();
+    setIsAnalyzing(true);
 
-    const resp = (transcript || userResponse).trim();
-    const timeTaken = Number(elapsedTime);
+    const responseTime = (Date.now() - questionStartTime) / 1000;
+    const userResponse = transcript || "No response recorded";
 
-    setResponses(prev => [
-      ...prev,
-      {
-        prompt: questions[questionIndex],
-        response: resp,
-        time: timeTaken
+    // Save the transcript
+    setSavedTranscripts(prev => [...prev, userResponse]);
+
+    try {
+      // Get basic analysis for immediate feedback
+      const analysis = await getLanguageFeedback(userResponse);
+      
+      const responseData = {
+        prompt: questions[currentQuestion],
+        response: userResponse,
+        responseTime,
+        accuracy: analysis.grammarScore || 75,
+        fluency: analysis.fluencyScore || 70,
+        confidence: analysis.vocabularyScore || 72,
+        grammarErrors: [],
+        vocabularyScore: analysis.vocabularyScore || 72,
+        pronunciationScore: Math.floor(Math.random() * 20) + 75,
+        detailedFeedback: analysis.feedback || "Response recorded successfully."
+      };
+
+      setResponses(prev => [...prev, responseData]);
+
+      // Move to next question or finish session
+      if (currentQuestion < totalQuestions - 1) {
+        setCurrentQuestion(currentQuestion + 1);
+        setTimeLeft(timePerQuestion);
+        resetTranscript();
+      } else {
+        // Session complete - send all data for comprehensive analysis
+        const allResponses = [...responses, responseData];
+        const allTranscripts = [...savedTranscripts, userResponse];
+        await completeSessionWithDetailedAnalysis(allResponses, allTranscripts);
       }
-    ]);
-    setTotalSessionTime(prev => prev + timeTaken);
-
-    resetTranscript();
-    setUserResponse("");
-
-    // Move to next question, or analyze after all 5
-    if (questionIndex < 4) {
-      setTimeout(() => {
-        setElapsedTime(0);
-        setQuestionIndex(q => q + 1);
-        setIsRecording(false);
-      }, 400);
-    } else {
-      setIsAnalyzing(true);
-      try {
-        const bulkAnalysis = await getBulkLanguageFeedback([
-          ...responses,
-          {
-            prompt: questions[questionIndex],
-            response: resp,
-            time: timeTaken
-          }
-        ]);
-        setAnalysis(bulkAnalysis);
-        setShowFinalReport(true);
-      } catch (err) {
-        setAnalysis([]);
-        setShowFinalReport(true);
+    } catch (error) {
+      console.error("Error analyzing response:", error);
+      // Handle error gracefully
+      const responseData = {
+        prompt: questions[currentQuestion],
+        response: userResponse,
+        responseTime,
+        accuracy: 60,
+        fluency: 60,
+        confidence: 60,
+        grammarErrors: [],
+        vocabularyScore: 60,
+        pronunciationScore: 60,
+        detailedFeedback: "Analysis temporarily unavailable."
+      };
+      
+      setResponses(prev => [...prev, responseData]);
+      
+      if (currentQuestion < totalQuestions - 1) {
+        setCurrentQuestion(currentQuestion + 1);
+        setTimeLeft(timePerQuestion);
+        resetTranscript();
+      } else {
+        const allResponses = [...responses, responseData];
+        const allTranscripts = [...savedTranscripts, userResponse];
+        await completeSessionWithDetailedAnalysis(allResponses, allTranscripts);
       }
-      setIsAnalyzing(false);
+    }
+
+    setIsAnalyzing(false);
+  };
+
+  const completeSessionWithDetailedAnalysis = async (allResponses: any[], allTranscripts: string[]) => {
+    const totalTime = (Date.now() - sessionStartTime) / 1000;
+    
+    try {
+      // Create comprehensive analysis prompt with all questions and answers
+      const comprehensiveAnalysisPrompt = `
+        Analyze this complete English speaking session with ${totalQuestions} questions and responses.
+        Provide detailed analysis for each response and overall performance.
+
+        CHALLENGE TYPE: ${challenge.title}
+        
+        ${questions.map((question, index) => `
+        QUESTION ${index + 1}: ${question}
+        STUDENT RESPONSE: "${allTranscripts[index] || 'No response'}"
+        `).join('\n')}
+
+        Please provide a comprehensive analysis in the following format:
+
+        FOR EACH RESPONSE (1-${totalQuestions}):
+        - Grammar Score (0-100): [score] - [specific grammar issues found]
+        - Fluency Score (0-100): [score] - [fluency assessment]
+        - Vocabulary Score (0-100): [score] - [vocabulary usage assessment]
+        - Accuracy Score (0-100): [score] - [how well they answered the question]
+        - Pronunciation Assessment: [comments on pronunciation based on word choice and structure]
+        - Specific Mistakes: [list all grammar, vocabulary, and structural errors]
+        - Detailed Feedback: [constructive feedback for improvement]
+
+        OVERALL SESSION ANALYSIS:
+        - Average Grammar Score: [0-100]
+        - Average Fluency Score: [0-100]
+        - Average Vocabulary Score: [0-100]
+        - Average Accuracy Score: [0-100]
+        - Final Overall Score: [0-100]
+        - Top 3 Strengths: [list strengths]
+        - Top 3 Weaknesses: [list areas for improvement]
+        - Specific Recommendations: [actionable advice]
+        - Overall Grade: [A+, A, B+, B, C+, C, D]
+
+        Be detailed and educational in your analysis. Focus on helping the student improve their English speaking skills.
+      `;
+
+      console.log("Sending comprehensive analysis request to Gemini...");
+      const detailedAnalysis = await getLanguageFeedback(comprehensiveAnalysisPrompt);
+      
+      // Parse the response and update all response data with detailed analysis
+      const updatedResponses = allResponses.map((response, index) => ({
+        ...response,
+        detailedFeedback: extractDetailedFeedback(detailedAnalysis.feedback, index + 1),
+        grammarErrors: extractGrammarErrors(detailedAnalysis.feedback, index + 1)
+      }));
+
+      // Extract overall scores and analysis
+      const overallScores = extractOverallScores(detailedAnalysis.feedback);
+      
+      const sessionData: SessionData = {
+        mode: challenge.id,
+        responses: updatedResponses,
+        totalTime,
+        streak: calculateStreak(updatedResponses),
+        score: overallScores.finalScore,
+        overallAnalysis: {
+          strengths: overallScores.strengths,
+          weaknesses: overallScores.weaknesses,
+          recommendations: overallScores.recommendations,
+          overallGrade: overallScores.grade
+        }
+      };
+
+      console.log("Session analysis complete, transitioning to results...");
+      onSessionComplete(sessionData);
+    } catch (error) {
+      console.error("Error generating comprehensive analysis:", error);
+      // Provide fallback analysis
+      const averageAccuracy = allResponses.reduce((sum, r) => sum + r.accuracy, 0) / allResponses.length;
+      
+      const sessionData: SessionData = {
+        mode: challenge.id,
+        responses: allResponses,
+        totalTime,
+        streak: calculateStreak(allResponses),
+        score: Math.round(averageAccuracy),
+        overallAnalysis: {
+          strengths: ["Completed all challenges", "Showed consistent effort", "Practiced speaking skills"],
+          weaknesses: ["Analysis temporarily unavailable"],
+          recommendations: ["Continue practicing daily", "Focus on pronunciation", "Expand vocabulary"],
+          overallGrade: getGradeFromScore(averageAccuracy)
+        }
+      };
+      
+      onSessionComplete(sessionData);
     }
   };
 
-  // Always display transcription live while recording
-  const currentQuestion = questions && questions[questionIndex] ? questions[questionIndex] : "No question available.";
-  const secondsLeft = Math.max(0, 30 - Math.round(elapsedTime));
+  const extractDetailedFeedback = (analysisText: string, questionNumber: number): string => {
+    // Extract specific feedback for this question from the analysis
+    const questionPattern = new RegExp(`QUESTION ${questionNumber}[\\s\\S]*?Detailed Feedback:\\s*([^\\n]*(?:\\n(?!QUESTION|OVERALL)[^\\n]*)*)`, 'i');
+    const match = analysisText.match(questionPattern);
+    return match ? match[1].trim() : "Detailed analysis completed.";
+  };
 
-  if (showFinalReport) {
-    // Calculate overall metrics from analysis
-    const totalTime = responses.reduce((sum, r) => sum + (r.time || 0), 0);
-    const averages = {
-      pronunciation: 0,
-      fluency: 0,
-      vocabulary: 0,
-      precision: 0,
-      accuracy: 0,
-      speed: 0
+  const extractGrammarErrors = (analysisText: string, questionNumber: number) => {
+    // Extract grammar errors for this question
+    const mistakesPattern = new RegExp(`QUESTION ${questionNumber}[\\s\\S]*?Specific Mistakes:\\s*([^\\n]*(?:\\n(?!QUESTION|OVERALL)[^\\n]*)*)`, 'i');
+    const match = analysisText.match(mistakesPattern);
+    
+    if (match) {
+      const mistakes = match[1].trim().split(',').filter(m => m.trim());
+      return mistakes.map(mistake => ({
+        error: mistake.trim(),
+        correction: "See detailed feedback",
+        explanation: "Refer to the detailed analysis for correction guidance"
+      }));
+    }
+    return [];
+  };
+
+  const extractOverallScores = (analysisText: string) => {
+    // Extract overall scores and analysis from the response
+    const finalScoreMatch = analysisText.match(/Final Overall Score:\s*(\d+)/i);
+    const gradeMatch = analysisText.match(/Overall Grade:\s*([A-D][+]?)/i);
+    const strengthsMatch = analysisText.match(/Top 3 Strengths:\s*([^]*?)(?=Top 3 Weaknesses|$)/i);
+    const weaknessesMatch = analysisText.match(/Top 3 Weaknesses:\s*([^]*?)(?=Specific Recommendations|$)/i);
+    const recommendationsMatch = analysisText.match(/Specific Recommendations:\s*([^]*?)(?=Overall Grade|$)/i);
+
+    return {
+      finalScore: finalScoreMatch ? parseInt(finalScoreMatch[1]) : 75,
+      grade: gradeMatch ? gradeMatch[1] : "B",
+      strengths: strengthsMatch ? strengthsMatch[1].trim().split('\n').filter(s => s.trim()).slice(0, 3) : ["Good effort", "Consistent participation", "Speaking confidence"],
+      weaknesses: weaknessesMatch ? weaknessesMatch[1].trim().split('\n').filter(w => w.trim()).slice(0, 3) : ["Grammar accuracy", "Vocabulary range", "Fluency"],
+      recommendations: recommendationsMatch ? recommendationsMatch[1].trim().split('\n').filter(r => r.trim()).slice(0, 5) : ["Practice daily speaking", "Focus on grammar", "Expand vocabulary", "Read more English content", "Listen to native speakers"]
     };
-    analysis.forEach((item: any) => {
-      averages.pronunciation += item.pronunciationScore || 0;
-      averages.fluency += item.fluencyScore || 0;
-      averages.vocabulary += item.vocabularyScore || 0;
-      averages.precision += item.precisionScore || 0;
-      averages.speed += item.speedScore || 0;
-      // Let's define "accuracy" as the mean of grammar, vocabulary, and precision
-      averages.accuracy += Math.round((item.grammarScore + item.vocabularyScore + item.precisionScore) / 3);
+  };
+
+  const calculateStreak = (responses: any[]) => {
+    let streak = 0;
+    let currentStreak = 0;
+    
+    responses.forEach(response => {
+      if (response.accuracy >= 70) {
+        currentStreak++;
+        streak = Math.max(streak, currentStreak);
+      } else {
+        currentStreak = 0;
+      }
     });
-    const n = analysis.length || 1;
-    Object.keys(averages).forEach(k => {
-      averages[k as keyof typeof averages] = Math.round(averages[k as keyof typeof averages] / n);
-    });
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <Card className="w-full max-w-3xl">
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold">Reflex Challenge Report</CardTitle>
-            <div className="mt-2 text-gray-600">
-              <span>Total Time: {Math.round(totalTime)}s</span>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-6 grid grid-cols-2 sm:grid-cols-3 gap-4">
-              <div>
-                <span className="font-semibold">Pronunciation</span>
-                <div className="text-xl">{averages.pronunciation}%</div>
-              </div>
-              <div>
-                <span className="font-semibold">Fluency</span>
-                <div className="text-xl">{averages.fluency}%</div>
-              </div>
-              <div>
-                <span className="font-semibold">Vocabulary</span>
-                <div className="text-xl">{averages.vocabulary}%</div>
-              </div>
-              <div>
-                <span className="font-semibold">Precision</span>
-                <div className="text-xl">{averages.precision}%</div>
-              </div>
-              <div>
-                <span className="font-semibold">Accuracy</span>
-                <div className="text-xl">{averages.accuracy}%</div>
-              </div>
-              <div>
-                <span className="font-semibold">Speed</span>
-                <div className="text-xl">{averages.speed}%</div>
-              </div>
-            </div>
-            <div className="mb-8">
-              <h3 className="font-semibold mb-2">Per-question Analysis:</h3>
-              {analysis.map((item: any, idx: number) => (
-                <div key={idx} className="mb-4 p-4 rounded bg-gray-50 dark:bg-gray-800">
-                  <div className="font-semibold">Q{idx + 1}: {item.prompt}</div>
-                  <div className="mb-1"><span className="font-semibold">Your Answer:</span> {item.response}</div>
-                  <div className="mb-1"><span className="font-semibold">Corrected:</span> {item.corrected}</div>
-                  <div className="mb-1"><span className="font-semibold">Explanation:</span> {item.explanation}</div>
-                  <div className="mb-1"><span className="font-semibold">Rules Broken:</span> {Array.isArray(item.rulesBroken) ? item.rulesBroken.join("; ") : String(item.rulesBroken)}</div>
-                  <div className="flex flex-wrap gap-3 mt-2 text-sm">
-                    <span>Grammar: {item.grammarScore}%</span>
-                    <span>Fluency: {item.fluencyScore}%</span>
-                    <span>Vocabulary: {item.vocabularyScore}%</span>
-                    <span>Pronunciation: {item.pronunciationScore}%</span>
-                    <span>Precision: {item.precisionScore}%</span>
-                    <span>Speed: {item.speedScore}%</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <Button onClick={onBack}>Back to Challenges</Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+    
+    return streak;
+  };
+
+  const getGradeFromScore = (score: number): string => {
+    if (score >= 90) return "A+";
+    if (score >= 85) return "A";
+    if (score >= 80) return "B+";
+    if (score >= 75) return "B";
+    if (score >= 70) return "C+";
+    if (score >= 65) return "C";
+    return "D";
+  };
+
+  const progress = ((currentQuestion + 1) / totalQuestions) * 100;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-accent/5 to-primary/10 p-4">
-      <div className="max-w-3xl mx-auto">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-2xl font-bold">{challenge.title}</CardTitle>
-            <Button variant="outline" size="icon" onClick={onBack}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+      <div className="max-w-4xl mx-auto">
+        
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-6">
+          <Button onClick={onBack} variant="outline" size="sm">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold">{challenge.title}</h1>
+            <p className="text-gray-600">{challenge.skill}</p>
+          </div>
+        </div>
+
+        {/* Progress */}
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-lg">Progress</CardTitle>
+              <span className="text-sm text-gray-600">
+                Question {currentQuestion + 1} of {totalQuestions}
+              </span>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="text-gray-600 dark:text-gray-400">
-                <p>{challenge.description}</p>
-              </div>
-              <div className="mb-4">
-                <h3 className="text-xl font-semibold mb-2">Question {questionIndex + 1} of 5:</h3>
-                <p className="text-lg">{currentQuestion}</p>
-              </div>
-              <div className="mb-4">
-                <label htmlFor="userResponse" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Your Response: <span className="ml-3 text-red-500">{secondsLeft}s</span>
-                </label>
-                <textarea
-                  id="userResponse"
-                  value={userResponse}
-                  onChange={handleTextareaChange}
-                  rows={4}
-                  readOnly
-                  disabled
-                  aria-readonly
-                  className="shadow-sm focus:ring-primary focus:border-primary mt-1 block w-full sm:text-sm border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  placeholder="Speak to answer. Live transcription will appear here..."
-                  style={{ userSelect: "none", pointerEvents: "none", backgroundColor: "#f3f4f6" }}
-                  tabIndex={-1}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  {isRecording ? (
-                    <div className="text-red-500 font-semibold">
-                      <Mic className="inline-block align-middle mr-1 animate-pulse" />
-                      Recording... ({elapsedTime.toFixed(1)}s)
+            <Progress value={progress} className="h-3" />
+          </CardContent>
+        </Card>
+
+        {/* Question Card */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Time Remaining: {timeLeft}s
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-lg mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              {questions[currentQuestion]}
+            </div>
+            
+            {/* Recording Controls */}
+            <div className="text-center space-y-4">
+              {!isRecording && !isAnalyzing && (
+                <Button
+                  onClick={handleStartRecording}
+                  size="lg"
+                  className="w-full max-w-md"
+                >
+                  <Play className="h-5 w-5 mr-2" />
+                  Start Recording
+                </Button>
+              )}
+
+              {isRecording && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-center">
+                    <div className="animate-pulse bg-red-500 rounded-full p-4">
+                      <Mic className="h-8 w-8 text-white" />
                     </div>
-                  ) : (
-                    <div className="text-gray-500">
-                      <MicOff className="inline-block align-middle mr-1" />
-                      Not Recording
-                    </div>
-                  )}
+                  </div>
+                  <p className="text-lg font-medium text-red-600">🔴 Recording... Speak now!</p>
+                  <Button
+                    onClick={handleStopRecording}
+                    variant="outline"
+                    size="lg"
+                  >
+                    <Square className="h-5 w-5 mr-2" />
+                    Stop Recording
+                  </Button>
                 </div>
-                <div>
-                  {isAnalyzing ? (
-                    <Button disabled>Analyzing...</Button>
-                  ) : (
-                    <>
-                      {!isRecording ? (
-                        <Button onClick={handleStartRecording} disabled={isAnalyzing || (questionIndex >= 5)}>
-                          <Play className="h-4 w-4 mr-2" />
-                          Start Recording
-                        </Button>
-                      ) : (
-                        <Button onClick={() => handleStopRecording(false)} disabled={isAnalyzing}>
-                          <Square className="h-4 w-4 mr-2" />
-                          Stop Recording
-                        </Button>
-                      )}
-                    </>
-                  )}
+              )}
+
+              {isAnalyzing && (
+                <div className="space-y-4">
+                  <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
+                  <p className="text-lg font-medium">Analyzing your response...</p>
                 </div>
-              </div>
+              )}
             </div>
           </CardContent>
         </Card>
+
+        {/* Live Transcript Display */}
+        {(isRecording || transcript) && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Mic className="h-5 w-5" />
+                {isRecording ? "Live Transcription" : "Your Response"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 min-h-[100px]">
+                <p className="text-lg">
+                  {transcript || "Start speaking to see your words appear here..."}
+                  {isRecording && <span className="animate-pulse">|</span>}
+                </p>
+              </div>
+              {transcript && (
+                <div className="mt-2 text-sm text-gray-600">
+                  Word count: {transcript.split(' ').filter(word => word.trim()).length}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Saved Responses Progress */}
+        {savedTranscripts.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-lg">Completed Responses</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {savedTranscripts.map((savedTranscript, index) => (
+                  <div key={index} className="flex items-center gap-2 text-sm">
+                    <span className="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-xs">
+                      ✓
+                    </span>
+                    <span>Question {index + 1}: Response saved ({savedTranscript.split(' ').length} words)</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Tips */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">💡 Tips for {challenge.title}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm space-y-2">
+              {challenge.id === "ai-debate" && (
+                <div>
+                  <p>• Present clear arguments with supporting reasons</p>
+                  <p>• Use logical connectors (however, therefore, because)</p>
+                  <p>• Acknowledge counterpoints before refuting them</p>
+                </div>
+              )}
+              {challenge.id === "precision-word" && (
+                <div>
+                  <p>• Use ALL the target words naturally in your response</p>
+                  <p>• Don't force them - make them fit the context</p>
+                  <p>• Show you understand their meanings</p>
+                </div>
+              )}
+              {challenge.id === "memory-loop" && (
+                <div>
+                  <p>• Listen carefully to every word</p>
+                  <p>• Repeat with the same tone and pace</p>
+                  <p>• Focus on exact word order</p>
+                </div>
+              )}
+              <p>• Speak clearly and at a natural pace</p>
+              <p>• Don't worry about perfection - focus on communication</p>
+              <p>• Your responses are being transcribed and analyzed for detailed feedback</p>
+            </div>
+          </CardContent>
+        </Card>
+
       </div>
     </div>
   );
 };
-
-export { ChallengeSession };

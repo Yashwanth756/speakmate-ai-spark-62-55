@@ -126,25 +126,13 @@ const TeacherDashboard = () => {
     return 'text-red-600 bg-red-50 border-red-200';
   };
 
-  const [reflexQuestion, setReflexQuestion] = useState('');
   const [storyTitle, setStoryTitle] = useState('');
   const [storyContent, setStoryContent] = useState('');
   const [puzzleTitle, setPuzzleTitle] = useState('');
   const [puzzleWords, setPuzzleWords] = useState('');
 
-  const handleCreateReflexChallenge = () => {
-    if (!reflexQuestion.trim()) return;
-    
-    toast({
-      title: "Reflex Challenge Created!",
-      description: `Challenge assigned to ${selectedClass === 'all-classes' ? 'All Classes' : selectedClass} - Section ${selectedSection === 'all-sections' ? 'All' : selectedSection}`,
-    });
-    setReflexQuestion('');
-  };
-
   const handleCreateStory = () => {
     if (!storyTitle.trim() || !storyContent.trim()) return;
-    
     toast({
       title: "Story Created!",
       description: `"${storyTitle}" assigned to ${selectedClass === 'all-classes' ? 'All Classes' : selectedClass} - Section ${selectedSection === 'all-sections' ? 'All' : selectedSection}`,
@@ -155,7 +143,6 @@ const TeacherDashboard = () => {
 
   const handleCreatePuzzle = () => {
     if (!puzzleTitle.trim() || !puzzleWords.trim()) return;
-    
     toast({
       title: "Word Puzzle Created!",
       description: `"${puzzleTitle}" assigned to ${selectedClass === 'all-classes' ? 'All Classes' : selectedClass} - Section ${selectedSection === 'all-sections' ? 'All' : selectedSection}`,
@@ -218,11 +205,10 @@ const TeacherDashboard = () => {
         </div>
 
         <Tabs defaultValue="assignments" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="assignments">Assignment Manager</TabsTrigger>
             <TabsTrigger value="activity">Student Activity</TabsTrigger>
             <TabsTrigger value="performance">Performance Analytics</TabsTrigger>
-            <TabsTrigger value="reflex">Quick Create</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
@@ -476,65 +462,6 @@ const TeacherDashboard = () => {
                     </TableBody>
                   </Table>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Quick Create Tab */}
-          <TabsContent value="reflex" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Zap className="h-5 w-5" />
-                  Create Reflex Challenge
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Target Class</Label>
-                    <Select value={selectedClass} onValueChange={setSelectedClass}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Class" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {user?.classes.map(className => (
-                          <SelectItem key={className} value={className}>
-                            {className}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Target Section</Label>
-                    <Select value={selectedSection} onValueChange={setSelectedSection}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Section" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {user?.sections.map(section => (
-                          <SelectItem key={section} value={section}>
-                            Section {section}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div>
-                  <Label>Challenge Question</Label>
-                  <Textarea
-                    placeholder="Enter your reflex challenge question here..."
-                    value={reflexQuestion}
-                    onChange={(e) => setReflexQuestion(e.target.value)}
-                    rows={3}
-                  />
-                </div>
-                <Button onClick={handleCreateReflexChallenge} className="w-full">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Challenge
-                </Button>
               </CardContent>
             </Card>
           </TabsContent>

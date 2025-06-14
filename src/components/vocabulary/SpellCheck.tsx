@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -108,11 +107,6 @@ export const SpellCheck: React.FC<SpellCheckProps> = ({ word, onCorrect, onNext 
             <div className="mt-2">
               <span className="text-sm text-gray-500">Part of Speech: </span>
               <span className="text-sm font-medium">{word.partOfSpeech}</span>
-            </div>
-            
-            <div className="mt-1">
-              <span className="text-sm text-gray-500">Example: </span>
-              <span className="text-sm italic">&ldquo;{word.example}&rdquo;</span>
             </div>
           </div>
           

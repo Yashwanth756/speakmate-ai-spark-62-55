@@ -24,6 +24,7 @@ export const useSpeechRecognition = (): SpeechRecognitionHook & {
 
   const supported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
 
+  // Only reset transcript/interimTranscript on explicit reset or new question!
   const handleResult = useCallback((event: any) => {
     let finalTranscript = '';
     let interim = '';
@@ -41,13 +42,8 @@ export const useSpeechRecognition = (): SpeechRecognitionHook & {
     setInterimTranscript(interim);
   }, []);
 
-  const startListening = useCallback(() => {
-    if (!supported) return;
-
-    setLastError(null);
-    setInterimTranscript('');
-    setTranscript('');
-    forceKeepAlive.current = true;
+  const setupRecognition = useCallback(() => {
+    if (!supported) return null;
 
     const SpeechRecognitionClass =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -55,12 +51,12 @@ export const useSpeechRecognition = (): SpeechRecognitionHook & {
 
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'en-IN'; // Changed from 'en-US' to Indian English
+    recognition.lang = 'en-IN'; // Ensure Indian English everywhere
 
     recognition.onstart = () => {
       setIsListening(true);
       setLastError(null);
-      setInterimTranscript('');
+      // Don't reset transcript/interimTranscript here!
     };
 
     recognition.onresult = handleResult;
@@ -68,8 +64,8 @@ export const useSpeechRecognition = (): SpeechRecognitionHook & {
     recognition.onerror = (event: any) => {
       setIsListening(false);
       setLastError(event.error || 'Speech recognition error');
-      // Optionally, try to restart on network/no-speech as well
-      if (forceKeepAlive.current && (event.error === 'no-speech' || event.error === 'network')) {
+      // Try to restart on network/no-speech/disconnect unless user stopped
+      if (forceKeepAlive.current && (event.error === 'no-speech' || event.error === 'network' || event.error === 'audio-capture')) {
         try { recognition.start(); } catch {}
       }
     };
@@ -77,8 +73,8 @@ export const useSpeechRecognition = (): SpeechRecognitionHook & {
     recognition.onend = () => {
       setIsListening(false);
       setInterimTranscript('');
-      // If still supposed to be listening, restart
       if (forceKeepAlive.current) {
+        // Don't reset transcript!
         try {
           recognition.start();
           setIsListening(true);
@@ -86,13 +82,24 @@ export const useSpeechRecognition = (): SpeechRecognitionHook & {
       }
     };
 
-    recognitionRef.current = recognition;
+    return recognition;
+  }, [supported, handleResult]);
+
+  const startListening = useCallback(() => {
+    if (!supported) return;
+    setLastError(null);
+    forceKeepAlive.current = true;
+
+    // Only instantiate recognition instance ONCE per session:
+    if (!recognitionRef.current) {
+      recognitionRef.current = setupRecognition();
+    }
     try {
-      recognition.start();
+      recognitionRef.current && recognitionRef.current.start();
     } catch (e) {
       setLastError('Unable to start recognition');
     }
-  }, [supported, handleResult]);
+  }, [supported, setupRecognition]);
 
   const stopListening = useCallback(() => {
     forceKeepAlive.current = false;
@@ -106,6 +113,11 @@ export const useSpeechRecognition = (): SpeechRecognitionHook & {
     setTranscript('');
     setLastError(null);
     setInterimTranscript('');
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch {}
+      recognitionRef.current = null;
+    }
+    forceKeepAlive.current = false;
   }, []);
 
   return {

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, ArrowLeft, Play, Square } from "lucide-react";
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
-import { getLanguageFeedback, sendMessageToGemini } from "@/lib/gemini-api";
+import { getLanguageFeedback, sendMessageToGemini, getBulkLanguageFeedback } from "@/lib/gemini-api";
 import { SessionData } from "@/pages/Reflex";
 
 interface Challenge {
@@ -80,46 +80,48 @@ const ChallengeSession: React.FC<ChallengeSessionProps> = ({
   onSessionComplete,
   onBack
 }) => {
+  // ... (challengeQuestions and 5-question batch logic)
   const questions = challengeQuestions[challenge.id as keyof typeof challengeQuestions] || [];
   const [questionIndex, setQuestionIndex] = useState(0);
   const [userResponse, setUserResponse] = useState("");
   const [isRecording, setIsRecording] = useState(false);
-  const [startTime, setStartTime] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [sessionResponses, setSessionResponses] = useState<SessionData["responses"]>([]);
-  const [totalSessionTime, setTotalSessionTime] = useState(0);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [responses, setResponses] = useState<{ prompt: string; response: string; time: number }[]>([]);
   const [timerIds, setTimerIds] = useState<{ intervalId: ReturnType<typeof setInterval> | null, timeoutId: ReturnType<typeof setTimeout> | null }>({ intervalId: null, timeoutId: null });
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showFinalReport, setShowFinalReport] = useState(false);
+  const [analysis, setAnalysis] = useState<any[]>([]);
+  const [totalSessionTime, setTotalSessionTime] = useState(0);
+
   const { transcript, isListening, supported, startListening, stopListening, resetTranscript } = useSpeechRecognition();
 
-  // Start live transcription when recording starts
+  useEffect(() => {
+    setUserResponse(transcript);
+  }, [transcript]);
+
+  // Start live transcription and timers when recording starts
   useEffect(() => {
     if (isRecording) {
       resetTranscript();
       startListening();
-      setStartTime(Date.now());
       setElapsedTime(0);
+      const startTimestamp = Date.now();
 
-      // Start timer for updating elapsedTime
       const intervalId = setInterval(() => {
-        setElapsedTime((Date.now() - startTime) / 1000);
+        setElapsedTime((Date.now() - startTimestamp) / 1000);
       }, 100);
 
-      // Start 30 second timeout for the question
       const timeoutId = setTimeout(() => {
-        handleAutoSubmit();
-      }, QUESTION_TIME_LIMIT * 1000);
+        handleStopRecording(true); // auto submit if time's up
+      }, 30000);
 
-      // Save intervalId and timeoutId in state
       setTimerIds({ intervalId, timeoutId });
     } else {
       stopListening();
-      // Clear both timers
       if (timerIds.intervalId) clearInterval(timerIds.intervalId);
       if (timerIds.timeoutId) clearTimeout(timerIds.timeoutId);
       setTimerIds({ intervalId: null, timeoutId: null });
     }
-    // Cleanup
     return () => {
       stopListening();
       if (timerIds.intervalId) clearInterval(timerIds.intervalId);
@@ -129,166 +131,155 @@ const ChallengeSession: React.FC<ChallengeSessionProps> = ({
     // eslint-disable-next-line
   }, [isRecording]);
 
-  // Sync userResponse with transcript
-  useEffect(() => {
-    setUserResponse(transcript);
-  }, [transcript]);
+  // Prevent editing of response textbox
+  const handleTextareaChange = () => {};
 
-  // Prevent manual changes to transcript field: only from speech recognition.
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    // do nothing (makes textarea read-only)
-  };
-
-  // Start recording (begin question)
-  const handleStartRecording = useCallback(() => {
-    setElapsedTime(0);
+  const handleStartRecording = () => {
     setIsRecording(true);
     resetTranscript();
-  }, [resetTranscript]);
-
-  // Core: Used for both auto and manual stop
-  const finishRecordingAndSave = useCallback(
-    async (autoSubmit = false) => {
-      setIsRecording(false);
-      // Clear both timers
-      if (timerIds.intervalId) clearInterval(timerIds.intervalId);
-      if (timerIds.timeoutId) clearTimeout(timerIds.timeoutId);
-      setTimerIds({ intervalId: null, timeoutId: null });
-      setIsAnalyzing(true);
-
-      const prompt = questions[questionIndex];
-
-      let responseText = userResponse.trim();
-      let feedback: any;
-      let answerSuggestion: string | undefined = undefined;
-      let grammarScore = 0,
-        vocabularyScore = 0,
-        fluencyScore = 0;
-
-      // If no response – fetch suggestion from Gemini
-      if (!responseText) {
-        // Assign 0 for the scores, and get a sample answer from AI
-        try {
-          answerSuggestion = await sendMessageToGemini(
-            `Please provide a sample answer in good English for the following prompt as a student's answer only: "${prompt}"`,
-            "reflex-challenge"
-          );
-        } catch (err) {
-          answerSuggestion = "Sorry, no suggestion available right now.";
-        }
-      }
-
-      // Always get feedback for consistency (if no answer, feedback will be for the suggestion)
-      try {
-        // Use user response if present, otherwise the suggestion for feedback
-        const analyzedText = responseText || answerSuggestion || "";
-        feedback = await getLanguageFeedback(analyzedText);
-
-        grammarScore = feedback.grammarScore ?? 0;
-        vocabularyScore = feedback.vocabularyScore ?? 0;
-        fluencyScore = feedback.fluencyScore ?? 0;
-      } catch (error) {
-        feedback = {
-          feedback: "Could not analyze your response.",
-          grammarScore: 0,
-          vocabularyScore: 0,
-          fluencyScore: 0
-        };
-      }
-
-      // "Accuracy" is just an average of the 3 scores for now.
-      const accuracy =
-        responseText ? Math.round((grammarScore + vocabularyScore + fluencyScore) / 3) : 0;
-
-      // Save this response
-      setSessionResponses(prev => [
-        ...prev,
-        {
-          prompt,
-          response: responseText || "(No response provided)",
-          responseTime: elapsedTime,
-          accuracy: accuracy,
-          fluency: fluencyScore,
-          confidence: fluencyScore, // placeholder, for future improvement
-          grammarErrors: [], // placeholder, no info from Gemini
-          vocabularyScore: vocabularyScore,
-          pronunciationScore: fluencyScore, // placeholder, no real pronunciation eval
-          detailedFeedback: feedback.feedback,
-          aiSuggestedAnswer: !responseText && answerSuggestion ? answerSuggestion : undefined
-        }
-      ]);
-      setTotalSessionTime(prev => prev + elapsedTime);
-
-      resetTranscript();
-      setUserResponse("");
-
-      setTimeout(() => {
-        setIsAnalyzing(false);
-        // Next question or finish
-        if (questionIndex < questions.length - 1) {
-          setQuestionIndex(prev => prev + 1);
-          setElapsedTime(0);
-          setIsRecording(false);
-        } else {
-          // Calculate overall stats and finish
-          const responses = [
-            ...sessionResponses,
-            {
-              prompt,
-              response: responseText || "(No response provided)",
-              responseTime: elapsedTime,
-              accuracy: accuracy,
-              fluency: fluencyScore,
-              confidence: fluencyScore,
-              grammarErrors: [],
-              vocabularyScore: vocabularyScore,
-              pronunciationScore: fluencyScore,
-              detailedFeedback: feedback.feedback,
-              aiSuggestedAnswer: !responseText && answerSuggestion ? answerSuggestion : undefined
-            }
-          ];
-
-          const accuracySum = responses.reduce((acc, res) => acc + (res.accuracy || 0), 0);
-          const fluencySum = responses.reduce((acc, res) => acc + (res.fluency || 0), 0);
-          const confidenceSum = responses.reduce((acc, res) => acc + (res.confidence || 0), 0);
-          const averageAccuracy = accuracySum / responses.length;
-          const averageFluency = fluencySum / responses.length;
-          const averageConfidence = confidenceSum / responses.length;
-
-          const sessionData: SessionData = {
-            mode: challenge.title,
-            responses: responses,
-            totalTime: totalSessionTime + elapsedTime,
-            streak: 5,
-            score: Math.round((averageAccuracy + averageFluency + averageConfidence) / 3),
-            overallAnalysis: {
-              strengths: ["Good vocabulary", "Clear pronunciation"],
-              weaknesses: ["Grammar errors", "Hesitations"],
-              recommendations: ["Practice verb tenses", "Speak slower"],
-              overallGrade: "B+"
-            }
-          };
-          onSessionComplete(sessionData);
-        }
-      }, 600); // feedback transition
-    },
-    // eslint-disable-next-line
-    [elapsedTime, questionIndex, userResponse, questions, challenge.title, sessionResponses, totalSessionTime, timerIds]
-  );
-
-  // Manual stop recording
-  const handleStopRecording = () => {
-    finishRecordingAndSave(false);
   };
 
-  // Called automatically after 30 sec if not submitted early
-  const handleAutoSubmit = () => {
+  // Stop recording & go to next or finish, collect all responses for batch analysis at end
+  const handleStopRecording = async (auto = false) => {
     setIsRecording(false);
-    finishRecordingAndSave(true);
+    if (timerIds.intervalId) clearInterval(timerIds.intervalId);
+    if (timerIds.timeoutId) clearTimeout(timerIds.timeoutId);
+    setTimerIds({ intervalId: null, timeoutId: null });
+
+    const resp = (transcript || userResponse).trim();
+    const timeTaken = Number(elapsedTime);
+
+    setResponses(prev => [
+      ...prev,
+      {
+        prompt: questions[questionIndex],
+        response: resp,
+        time: timeTaken
+      }
+    ]);
+    setTotalSessionTime(prev => prev + timeTaken);
+
+    resetTranscript();
+    setUserResponse("");
+
+    // Move to next question, or analyze after all 5
+    if (questionIndex < 4) {
+      setTimeout(() => {
+        setElapsedTime(0);
+        setQuestionIndex(q => q + 1);
+        setIsRecording(false);
+      }, 400);
+    } else {
+      setIsAnalyzing(true);
+      try {
+        const bulkAnalysis = await getBulkLanguageFeedback([
+          ...responses,
+          {
+            prompt: questions[questionIndex],
+            response: resp,
+            time: timeTaken
+          }
+        ]);
+        setAnalysis(bulkAnalysis);
+        setShowFinalReport(true);
+      } catch (err) {
+        setAnalysis([]);
+        setShowFinalReport(true);
+      }
+      setIsAnalyzing(false);
+    }
   };
 
+  // Always display transcription live while recording
   const currentQuestion = questions && questions[questionIndex] ? questions[questionIndex] : "No question available.";
-  const secondsLeft = Math.max(0, QUESTION_TIME_LIMIT - Math.round(elapsedTime));
+  const secondsLeft = Math.max(0, 30 - Math.round(elapsedTime));
+
+  if (showFinalReport) {
+    // Calculate overall metrics from analysis
+    const totalTime = responses.reduce((sum, r) => sum + (r.time || 0), 0);
+    const averages = {
+      pronunciation: 0,
+      fluency: 0,
+      vocabulary: 0,
+      precision: 0,
+      accuracy: 0,
+      speed: 0
+    };
+    analysis.forEach((item: any) => {
+      averages.pronunciation += item.pronunciationScore || 0;
+      averages.fluency += item.fluencyScore || 0;
+      averages.vocabulary += item.vocabularyScore || 0;
+      averages.precision += item.precisionScore || 0;
+      averages.speed += item.speedScore || 0;
+      // Let's define "accuracy" as the mean of grammar, vocabulary, and precision
+      averages.accuracy += Math.round((item.grammarScore + item.vocabularyScore + item.precisionScore) / 3);
+    });
+    const n = analysis.length || 1;
+    Object.keys(averages).forEach(k => {
+      averages[k as keyof typeof averages] = Math.round(averages[k as keyof typeof averages] / n);
+    });
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <Card className="w-full max-w-3xl">
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold">Reflex Challenge Report</CardTitle>
+            <div className="mt-2 text-gray-600">
+              <span>Total Time: {Math.round(totalTime)}s</span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-6 grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div>
+                <span className="font-semibold">Pronunciation</span>
+                <div className="text-xl">{averages.pronunciation}%</div>
+              </div>
+              <div>
+                <span className="font-semibold">Fluency</span>
+                <div className="text-xl">{averages.fluency}%</div>
+              </div>
+              <div>
+                <span className="font-semibold">Vocabulary</span>
+                <div className="text-xl">{averages.vocabulary}%</div>
+              </div>
+              <div>
+                <span className="font-semibold">Precision</span>
+                <div className="text-xl">{averages.precision}%</div>
+              </div>
+              <div>
+                <span className="font-semibold">Accuracy</span>
+                <div className="text-xl">{averages.accuracy}%</div>
+              </div>
+              <div>
+                <span className="font-semibold">Speed</span>
+                <div className="text-xl">{averages.speed}%</div>
+              </div>
+            </div>
+            <div className="mb-8">
+              <h3 className="font-semibold mb-2">Per-question Analysis:</h3>
+              {analysis.map((item: any, idx: number) => (
+                <div key={idx} className="mb-4 p-4 rounded bg-gray-50 dark:bg-gray-800">
+                  <div className="font-semibold">Q{idx + 1}: {item.prompt}</div>
+                  <div className="mb-1"><span className="font-semibold">Your Answer:</span> {item.response}</div>
+                  <div className="mb-1"><span className="font-semibold">Corrected:</span> {item.corrected}</div>
+                  <div className="mb-1"><span className="font-semibold">Explanation:</span> {item.explanation}</div>
+                  <div className="mb-1"><span className="font-semibold">Rules Broken:</span> {Array.isArray(item.rulesBroken) ? item.rulesBroken.join("; ") : String(item.rulesBroken)}</div>
+                  <div className="flex flex-wrap gap-3 mt-2 text-sm">
+                    <span>Grammar: {item.grammarScore}%</span>
+                    <span>Fluency: {item.fluencyScore}%</span>
+                    <span>Vocabulary: {item.vocabularyScore}%</span>
+                    <span>Pronunciation: {item.pronunciationScore}%</span>
+                    <span>Precision: {item.precisionScore}%</span>
+                    <span>Speed: {item.speedScore}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Button onClick={onBack}>Back to Challenges</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-accent/5 to-primary/10 p-4">
@@ -305,12 +296,10 @@ const ChallengeSession: React.FC<ChallengeSessionProps> = ({
               <div className="text-gray-600 dark:text-gray-400">
                 <p>{challenge.description}</p>
               </div>
-
               <div className="mb-4">
-                <h3 className="text-xl font-semibold mb-2">Question {questionIndex + 1}:</h3>
+                <h3 className="text-xl font-semibold mb-2">Question {questionIndex + 1} of 5:</h3>
                 <p className="text-lg">{currentQuestion}</p>
               </div>
-
               <div className="mb-4">
                 <label htmlFor="userResponse" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Your Response: <span className="ml-3 text-red-500">{secondsLeft}s</span>
@@ -321,15 +310,14 @@ const ChallengeSession: React.FC<ChallengeSessionProps> = ({
                   onChange={handleTextareaChange}
                   rows={4}
                   readOnly
-                  className="shadow-sm focus:ring-primary focus:border-primary mt-1 block w-full sm:text-sm border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  placeholder="Speak to answer. Live transcription will appear here..."
                   disabled
                   aria-readonly
-                  tabIndex={-1}
+                  className="shadow-sm focus:ring-primary focus:border-primary mt-1 block w-full sm:text-sm border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  placeholder="Speak to answer. Live transcription will appear here..."
                   style={{ userSelect: "none", pointerEvents: "none", backgroundColor: "#f3f4f6" }}
+                  tabIndex={-1}
                 />
               </div>
-
               <div className="flex items-center justify-between">
                 <div>
                   {isRecording ? (
@@ -350,12 +338,12 @@ const ChallengeSession: React.FC<ChallengeSessionProps> = ({
                   ) : (
                     <>
                       {!isRecording ? (
-                        <Button onClick={handleStartRecording} disabled={isAnalyzing}>
+                        <Button onClick={handleStartRecording} disabled={isAnalyzing || (questionIndex >= 5)}>
                           <Play className="h-4 w-4 mr-2" />
                           Start Recording
                         </Button>
                       ) : (
-                        <Button onClick={handleStopRecording} disabled={isAnalyzing}>
+                        <Button onClick={() => handleStopRecording(false)} disabled={isAnalyzing}>
                           <Square className="h-4 w-4 mr-2" />
                           Stop Recording
                         </Button>
@@ -373,5 +361,3 @@ const ChallengeSession: React.FC<ChallengeSessionProps> = ({
 };
 
 export { ChallengeSession };
-
-// src/components/reflex/ChallengeSession.tsx is now quite long. Consider refactoring into smaller components for readability and maintainability.

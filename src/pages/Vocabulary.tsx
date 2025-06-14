@@ -77,8 +77,6 @@ const VocabularyTrainer: React.FC = () => {
   const [currentLevel, setCurrentLevel] = useState<"beginner" | "intermediate" | "advanced">("intermediate");
   const [currentWord, setCurrentWord] = useState(mockDictionary[0]);
   const [dailyProgress, setDailyProgress] = useState(2);
-  const [isQuizMode, setIsQuizMode] = useState(false);
-  const [isSpellMode, setIsSpellMode] = useState(false);
   const { transcript, resetTranscript, startListening, stopListening, isListening, supported } = useSpeechRecognition();
   
   const [learnedWords, setLearnedWords] = useState<{
@@ -181,12 +179,6 @@ const VocabularyTrainer: React.FC = () => {
 
   const toggleSpellMode = () => {
     setIsSpellMode(!isSpellMode);
-    setIsQuizMode(false);
-  };
-
-  const toggleQuizMode = () => {
-    setIsQuizMode(!isQuizMode);
-    setIsSpellMode(false);
   };
 
   return (
@@ -222,7 +214,8 @@ const VocabularyTrainer: React.FC = () => {
                   />
                 </div>
 
-                {!isSpellMode && !isQuizMode && (
+                {/* Only two modes: WordCard and SpellCheck */}
+                {!isSpellMode && (
                   <WordCard 
                     word={currentWord}
                     onNextWord={getRandomWord}
@@ -239,17 +232,6 @@ const VocabularyTrainer: React.FC = () => {
                   />
                 )}
 
-                {isQuizMode && (
-                  <Card>
-                    <CardHeader>
-                      <h2 className="text-xl font-semibold">Word Quiz</h2>
-                    </CardHeader>
-                    <CardContent>
-                      <p>Coming soon: Multiple choice, fill-in-the-blank, and matching exercises!</p>
-                    </CardContent>
-                  </Card>
-                )}
-
                 <div className="grid grid-cols-3 gap-3 mt-4">
                   <Button 
                     onClick={toggleSpellMode}
@@ -259,14 +241,7 @@ const VocabularyTrainer: React.FC = () => {
                     <Book className="mr-2 h-4 w-4" />
                     Spelling Practice
                   </Button>
-                  <Button 
-                    onClick={toggleQuizMode}
-                    variant={isQuizMode ? "default" : "outline"}
-                    className="flex items-center justify-center"
-                  >
-                    <Play className="mr-2 h-4 w-4" />
-                    Quiz Mode
-                  </Button>
+                  {/* Removed Quiz Mode button */}
                   <Button
                     onClick={getRandomWord}
                     variant="outline"

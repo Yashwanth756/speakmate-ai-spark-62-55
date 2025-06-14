@@ -98,18 +98,21 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
   const [sessionStartTime, setSessionStartTime] = useState<number>(Date.now());
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
   const timerRef = useRef<NodeJS.Timeout>();
-
   const {
     transcript,
     startListening,
     stopListening,
     resetTranscript,
-    isListening
+    isListening,
+    interimTranscript,
   } = useSpeechRecognition();
 
   const questions = challengeQuestions[challenge.id as keyof typeof challengeQuestions] || [];
   const totalQuestions = 5;
   const timePerQuestion = challenge.id === "quick-fire" ? 5 : 30;
+
+  // Compose the live transcript from finalized + interim for UI
+  const liveTranscript = transcript + (interimTranscript || '');
 
   // Update the current transcript from the speech recognition transcript
   useEffect(() => {
@@ -150,12 +153,10 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
 
     const responseTime = (Date.now() - questionStartTime) / 1000;
 
-    let userResponse = transcript.trim();
+    // Always use *latest* composite (final + interim) transcript, trimmed
+    let userResponse = (transcript + (interimTranscript || "")).trim();
 
-    if (!userResponse) {
-      userResponse = "No response recorded";
-    }
-
+    // Do not use fallback text; just save the transcript as is (if empty, "")
     setSavedTranscripts(prev => {
       const updated = [...prev];
       updated[currentQuestion] = userResponse;
@@ -189,20 +190,7 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
       setIsAnalyzing(false);
     } else {
       await completeSessionWithDetailedAnalysis(
-        [...responses.slice(0, totalQuestions - 1), {
-          question: questions[currentQuestion],
-          original: userResponse,
-          corrected: "",
-          explanation: "",
-          grammarErrors: [],
-          accuracy: 0,
-          fluency: 0,
-          confidence: 0,
-          vocabularyScore: 0,
-          pronunciationScore: Math.floor(Math.random() * 20) + 75,
-          speed: 0,
-          detailedFeedback: ""
-        }],
+        [...responses.slice(0, totalQuestions - 1), responseData],
         [...savedTranscripts.slice(0, totalQuestions - 1), userResponse]
       );
       setIsAnalyzing(false);
@@ -459,7 +447,7 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
         </Card>
 
       {/* Live Transcript Display */}
-      {(isRecording || transcript) && (
+      {(isRecording || transcript || interimTranscript) && (
         <Card className="mb-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-lg">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
@@ -468,7 +456,10 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <TranscriptDisplay transcript={transcript} isRecording={isRecording} />
+            <TranscriptDisplay
+              transcript={liveTranscript}
+              isRecording={isRecording}
+            />
           </CardContent>
         </Card>
       )}

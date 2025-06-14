@@ -205,36 +205,54 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
     const totalTime = (Date.now() - sessionStartTime) / 1000;
 
     try {
-      // Batched prompt for Gemini analysis
+      // Prepare questions + responses section with placeholders for missing answers
+      const questionsForBatch = questions.map((q, i) => ({
+        question: q,
+        answer: allTranscripts[i]?.trim() && allTranscripts[i] !== "No response"
+          ? allTranscripts[i]
+          : "No response"
+      }));
+
+      // Batched prompt for Gemini analysis (now more explicit per your request)
       const bulkPrompt = `
-        Analyze these 5 English responses for grammar, fluency, and accuracy.
-        Return a JSON array with detailed feedback for each response.
+        Analyze the following 5 English answers. For EACH QUESTION/RESPONSE PAIR, provide:
+        - The user's original response as "original"
+        - A fully corrected, improved version as "corrected" (if no response, suggest a strong answer)
+        - An explanation of the key mistakes, as "explanation"
+        - An array "broken_rules" listing grammar rules that were broken (use grammatical terms)
+        - Numeric scores out of 100 for: "accuracy", "fluency", "pronunciation", "vocabulary", "precision", "speed", "confidence"
+        If user response is missing ("No response"), all scores should be 0 and provide a model answer as "corrected".
+        Return a JSON array using this structure:
+        [
+          {
+            "question": (the question),
+            "original": (verbatim student answer or "No response"),
+            "corrected": (fully corrected/model answer),
+            "explanation": (explanation string, or "No response provided"),
+            "broken_rules": [list of broken grammar rules],
+            "accuracy": 0-100,
+            "fluency": 0-100,
+            "pronunciation": 0-100,
+            "vocabulary": 0-100,
+            "precision": 0-100,
+            "speed": 0-100,
+            "confidence": 0-100
+          },
+          ...
+        ]
+        
+        QA PAIRS:
+        ${questionsForBatch.map((pair, i) =>
+          `Q${i+1}: "${pair.question}"\nA${i+1}: "${pair.answer}"`
+        ).join('\n')}
+      `.trim();
 
-        Questions and Responses:
-        ${questions.map((q, i) => `Q${i+1}: "${q}"\nA${i+1}: "${allTranscripts[i] || "No response"}"`).join('\n')}
-
-        For each response, provide:
-        {
-          "question": "the question",
-          "original": "student's answer verbatim",
-          "corrected": "improved version",
-          "explanation": "brief explanation of mistakes",
-          "broken_rules": ["grammar rules broken"],
-          "accuracy": 0-100,
-          "fluency": 0-100,
-          "pronunciation": 0-100,
-          "vocabulary": 0-100,
-          "precision": 0-100,
-          "speed": 0-100
-        }
-      `;
-
+      // Use Gemini API for analysis
       const { feedback } = await getLanguageFeedback(bulkPrompt);
 
-      // Try to parse the JSON response
-      const arrayMatch = feedback.match(/\[(.|\s|\n)*\]/m);
+      // Extract the JSON array from the feedback string robustly
+      const arrayMatch = feedback.match(/\[[\s\S]*\]/m);
       let resultsArr = [];
-      
       if (arrayMatch) {
         try {
           resultsArr = JSON.parse(arrayMatch[0]);
@@ -243,75 +261,91 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
         }
       }
 
-      // Fallback if parsing fails
-      if (!Array.isArray(resultsArr) || resultsArr.length === 0) {
-        resultsArr = allResponses.map((resp, i) => ({
-          question: questions[i],
-          original: allTranscripts[i] || "",
-          corrected: "",
-          explanation: "",
+      // Fallback: if Gemini did not return an array, synthesize from old responses
+      if (!Array.isArray(resultsArr) || resultsArr.length !== questions.length) {
+        resultsArr = questionsForBatch.map((pair, i) => ({
+          question: pair.question,
+          original: pair.answer,
+          corrected: pair.answer === "No response" ? "(No answer provided. Sample: ...)" : pair.answer,
+          explanation: pair.answer === "No response" ? "No response provided" : "",
           broken_rules: [],
-          accuracy: 60,
-          fluency: 60,
-          pronunciation: 80,
-          vocabulary: 60,
-          precision: 60,
-          speed: 60
+          accuracy: pair.answer === "No response" ? 0 : 60,
+          fluency: pair.answer === "No response" ? 0 : 60,
+          pronunciation: pair.answer === "No response" ? 0 : 75,
+          vocabulary: pair.answer === "No response" ? 0 : 60,
+          precision: pair.answer === "No response" ? 0 : 60,
+          speed: pair.answer === "No response" ? 0 : 60,
+          confidence: pair.answer === "No response" ? 0 : 60
         }));
       }
 
-      // Calculate metrics and create session data
-      let sumPronunciation = 0, sumFluency = 0, sumVocabulary = 0;
-      let sumPrecision = 0, sumAccuracy = 0, sumSpeed = 0;
+      // Compute averages, detailed analysis, and report
+      let sumPronunciation = 0, sumFluency = 0, sumVocabulary = 0, sumPrecision = 0;
+      let sumAccuracy = 0, sumSpeed = 0, sumConfidence = 0;
 
-      const responsesWithAnalysis = resultsArr.map((gemini, i) => {
-        sumPronunciation += gemini.pronunciation ?? 0;
-        sumFluency += gemini.fluency ?? 0;
-        sumVocabulary += gemini.vocabulary ?? 0;
-        sumPrecision += gemini.precision ?? 0;
-        sumAccuracy += gemini.accuracy ?? 0;
-        sumSpeed += gemini.speed ?? 0;
+      const responsesWithAnalysis = resultsArr.map((result: any) => {
+        sumPronunciation += result.pronunciation ?? 0;
+        sumFluency += result.fluency ?? 0;
+        sumVocabulary += result.vocabulary ?? 0;
+        sumPrecision += result.precision ?? 0;
+        sumAccuracy += result.accuracy ?? 0;
+        sumSpeed += result.speed ?? 0;
+        sumConfidence += result.confidence ?? 0;
 
         return {
-          question: gemini.question,
-          original: gemini.original,
-          corrected: gemini.corrected,
-          explanation: gemini.explanation,
-          grammarErrors: (gemini.broken_rules || []).map((rule: string) => ({
+          question: result.question,
+          original: result.original,
+          corrected: result.corrected,
+          explanation: result.explanation,
+          grammarErrors: (result.broken_rules || []).map((rule: string) => ({
             error: rule,
-            correction: gemini.corrected,
-            explanation: gemini.explanation
+            correction: result.corrected,
+            explanation: result.explanation
           })),
-          accuracy: gemini.accuracy ?? 60,
-          fluency: gemini.fluency ?? 60,
-          confidence: Math.round((gemini.fluency + gemini.vocabulary + gemini.precision) / 3) || 65,
-          vocabularyScore: gemini.vocabulary ?? 60,
-          pronunciationScore: gemini.pronunciation ?? 75,
-          speed: gemini.speed ?? 60,
-          detailedFeedback: gemini.explanation || ""
+          accuracy: result.accuracy ?? 0,
+          fluency: result.fluency ?? 0,
+          confidence: result.confidence ?? 0,
+          vocabularyScore: result.vocabulary ?? 0,
+          pronunciationScore: result.pronunciation ?? 0,
+          speed: result.speed ?? 0,
+          detailedFeedback: result.explanation || ""
         };
       });
 
-      const n = resultsArr.length || 1;
+      const n = questions.length || 1;
+      const validAnswers = responsesWithAnalysis.filter(r => r.original !== "No response").length;
+      function average(val: number) {
+        return Math.round(val / n);
+      }
       const sessionData: SessionData = {
         mode: challenge.id,
         responses: responsesWithAnalysis,
         totalTime,
         streak: responsesWithAnalysis.reduce((streak, r) => (r.accuracy >= 70 ? streak + 1 : streak), 0),
-        score: Math.round(sumAccuracy / n),
+        score: average(sumAccuracy),
         overallAnalysis: {
-          strengths: ["Completed all challenges", "Active participation"],
-          weaknesses: ["See individual question feedback"],
-          recommendations: ["Practice identified grammar rules", "Review corrected answers"],
+          strengths: [
+            validAnswers === n ? "Completed all challenges" : `Answered ${validAnswers} of 5`,
+            "Active participation"
+          ],
+          weaknesses: [
+            ...(validAnswers < n ? ["Missed one or more responses"] : []),
+            "See individual feedback"
+          ],
+          recommendations: [
+            ...(validAnswers < n ? ["Aim to answer every question, even small attempts help!"] : []),
+            "Practice identified grammar rules",
+            "Review corrected answers"
+          ],
           overallGrade: getGradeFromScore(sumAccuracy / n)
         },
         metrics: {
-          pronunciation: Math.round(sumPronunciation / n),
-          fluency: Math.round(sumFluency / n),
-          vocabulary: Math.round(sumVocabulary / n),
-          precision: Math.round(sumPrecision / n),
-          accuracy: Math.round(sumAccuracy / n),
-          speed: Math.round(sumSpeed / n),
+          pronunciation: average(sumPronunciation),
+          fluency: average(sumFluency),
+          vocabulary: average(sumVocabulary),
+          precision: average(sumPrecision),
+          accuracy: average(sumAccuracy),
+          speed: average(sumSpeed),
           totalTime: Math.round(totalTime)
         }
       };
@@ -319,23 +353,22 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
       onSessionComplete(sessionData);
 
     } catch (error) {
-      console.error("Error with Gemini analysis:", error);
-      
-      // Fallback session data
+      console.error("Error with Gemini detailed analysis:", error);
+      // Robust fallback (missing API, rate limit, etc)
       const sessionData: SessionData = {
         mode: challenge.id,
-        responses: allResponses.map((resp, i) => ({
-          question: questions[i],
-          original: allTranscripts[i] || "",
+        responses: questions.map((q, i) => ({
+          question: q,
+          original: allTranscripts[i]?.trim() || "",
           corrected: "",
           explanation: "Analysis unavailable",
           grammarErrors: [],
-          accuracy: 60,
-          fluency: 60,
-          confidence: 60,
-          vocabularyScore: 60,
-          pronunciationScore: 75,
-          speed: 60,
+          accuracy: allTranscripts[i] ? 60 : 0,
+          fluency: allTranscripts[i] ? 60 : 0,
+          confidence: allTranscripts[i] ? 60 : 0,
+          vocabularyScore: allTranscripts[i] ? 60 : 0,
+          pronunciationScore: allTranscripts[i] ? 75 : 0,
+          speed: allTranscripts[i] ? 60 : 0,
           detailedFeedback: "Please try again for detailed feedback"
         })),
         totalTime: (Date.now() - sessionStartTime) / 1000,

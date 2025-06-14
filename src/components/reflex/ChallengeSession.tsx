@@ -48,11 +48,11 @@ const challengeQuestions = {
     "International collaboration facilitates knowledge exchange, cultural understanding, and global problem-solving initiatives."
   ],
   "visual-response": [
-    "Describe a bustling city market scene with vendors, customers, and various products.",
-    "Explain what you see in a peaceful mountain landscape during sunrise.",
-    "Describe a modern office environment with people working collaboratively.",
-    "Paint a picture of a family gathering during a holiday celebration.",
-    "Describe a scientific laboratory with researchers conducting experiments."
+    "Close your eyes for a moment and visualize this imaginary scene: You walk into a bustling city market filled with colors, sounds, and fragrances. Describe in vivid detail what you imagine seeing, hearing, and feeling.",
+    "Picture this in your mind: a peaceful mountain landscape at sunrise, mist rolling off the peaks, the sky painted with soft colors. Visualize this illusion and speak about what you experience.",
+    "Imagine stepping into a modern office full of people collaborating, technology everywhere, a sense of energy in the air. Before you answer, take a moment to create this illusion in your mind. What do you see happening?",
+    "Visualize a heartwarming family gathering during a holiday; there's laughter, conversation, and favorite foods. Create this illusion in your mind’s eye and describe what you experience.",
+    "Imagine you're in a high-tech scientific laboratory with researchers buzzing about, experiments in progress. Pause, build this imaginary scene mentally, and then describe the details you notice."
   ],
   "quick-fire": [
     "What's your favorite season and why?",

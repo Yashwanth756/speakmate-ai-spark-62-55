@@ -43,6 +43,13 @@ export function AppSidebar() {
   const currentPath = window.location.pathname;
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
+  // Hide sidebar on teacher dashboard route
+  if (
+    currentPath === "/teacher/dashboard"
+  ) {
+    return null;
+  }
+
   return (
     <Sidebar>
       <SidebarContent>

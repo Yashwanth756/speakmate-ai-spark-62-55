@@ -7,6 +7,7 @@ import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { getLanguageFeedback } from "@/lib/gemini-api";
 import { SessionData } from "@/pages/Reflex";
 import { getGradeFromScore } from "@/lib/utils";
+import { TranscriptDisplay } from "./TranscriptDisplay";
 
 interface Challenge {
   id: string;
@@ -96,7 +97,6 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
   const [savedTranscripts, setSavedTranscripts] = useState<string[]>([]);
   const [sessionStartTime, setSessionStartTime] = useState<number>(Date.now());
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
-  const [currentTranscript, setCurrentTranscript] = useState("");
   const timerRef = useRef<NodeJS.Timeout>();
 
   const {
@@ -114,7 +114,6 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
   // Update the current transcript from the speech recognition transcript
   useEffect(() => {
     if (isRecording && transcript) {
-      setCurrentTranscript(transcript);
     }
   }, [transcript, isRecording]);
 
@@ -122,7 +121,6 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
     setTimeLeft(timePerQuestion);
     setQuestionStartTime(Date.now());
     resetTranscript();
-    setCurrentTranscript("");
   }, [currentQuestion, timePerQuestion, resetTranscript]);
 
   useEffect(() => {
@@ -141,7 +139,6 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
   const handleStartRecording = () => {
     setIsRecording(true);
     resetTranscript();
-    setCurrentTranscript("");
     startListening();
     setQuestionStartTime(Date.now());
   };
@@ -153,29 +150,18 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
 
     const responseTime = (Date.now() - questionStartTime) / 1000;
 
-    // Immediately get THE LATEST transcript string directly.
-    // Prioritize local state (currentTranscript) if it has content, else from hook transcript, else fallback.
-    // This avoids closure issues!
-    let latestTranscript = currentTranscript?.trim() ?? "";
-    if (!latestTranscript) {
-      latestTranscript = transcript?.trim() ?? "";
-    }
+    let userResponse = transcript.trim();
 
-    let userResponse = latestTranscript || "";
-
-    // Only fall back to default if both are empty
     if (!userResponse) {
       userResponse = "No response recorded";
     }
 
-    // Save the actual transcript for this question
     setSavedTranscripts(prev => {
       const updated = [...prev];
-      updated[currentQuestion] = userResponse; // always save actual response!
+      updated[currentQuestion] = userResponse;
       return updated;
     });
 
-    // Create response data with user response
     const responseData = {
       question: questions[currentQuestion],
       original: userResponse,
@@ -197,15 +183,26 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
       return updated;
     });
 
-    // Continue rest of logic (question advance or session complete)
     if (currentQuestion < totalQuestions - 1) {
       setCurrentQuestion(currentQuestion + 1);
       setTimeLeft(timePerQuestion);
       setIsAnalyzing(false);
     } else {
-      // Session complete: send analysis with all actual responses
       await completeSessionWithDetailedAnalysis(
-        [...responses.slice(0, totalQuestions - 1), responseData],
+        [...responses.slice(0, totalQuestions - 1), {
+          question: questions[currentQuestion],
+          original: userResponse,
+          corrected: "",
+          explanation: "",
+          grammarErrors: [],
+          accuracy: 0,
+          fluency: 0,
+          confidence: 0,
+          vocabularyScore: 0,
+          pronunciationScore: Math.floor(Math.random() * 20) + 75,
+          speed: 0,
+          detailedFeedback: ""
+        }],
         [...savedTranscripts.slice(0, totalQuestions - 1), userResponse]
       );
       setIsAnalyzing(false);
@@ -461,54 +458,45 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
           </CardContent>
         </Card>
 
-        {/* Live Transcript Display */}
-        {(isRecording || currentTranscript || transcript) && (
-          <Card className="mb-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Mic className="h-5 w-5" />
-                {isRecording ? "Live Transcription" : "Your Response"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-lg p-6 min-h-[120px] border border-blue-200 dark:border-blue-700">
-                <p className="text-lg leading-relaxed">
-                  {currentTranscript || transcript || "Start speaking to see your words appear here..."}
-                  {isRecording && <span className="animate-pulse text-blue-500">|</span>}
-                </p>
-              </div>
-              {(currentTranscript || transcript) && (
-                <div className="mt-3 text-sm text-gray-600 dark:text-gray-400 flex justify-between">
-                  <span>Word count: {(currentTranscript || transcript).split(/\s+/).filter(word => word.trim()).length}</span>
-                  <span>Characters: {(currentTranscript || transcript).length}</span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Saved Responses Progress */}
-        {savedTranscripts.length > 0 && (
-          <Card className="mb-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-lg">Completed Responses</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {savedTranscripts.map((savedTranscript, index) => (
+      {/* Live Transcript Display */}
+      {(isRecording || transcript) && (
+        <Card className="mb-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Mic className="h-5 w-5" />
+              {isRecording ? "Live Transcription" : "Your Response"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <TranscriptDisplay transcript={transcript} isRecording={isRecording} />
+          </CardContent>
+        </Card>
+      )}
+      {/* Saved Responses Progress */}
+      {savedTranscripts.length > 0 && (
+        <Card className="mb-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-lg">Completed Responses</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {savedTranscripts.map((saved, index) => {
+                const wordCount = saved.trim().split(/\s+/).filter(Boolean).length;
+                return (
                   <div key={index} className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
                     <span className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center text-sm font-semibold">
                       ✓
                     </span>
                     <span className="text-sm">
-                      <span className="font-semibold">Question {index + 1}:</span> Response saved ({savedTranscript.split(/\s+/).filter(Boolean).length} words)
+                      <span className="font-semibold">Question {index + 1}:</span> Response saved ({wordCount} {wordCount === 1 ? "word" : "words"})
                     </span>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
         {/* Tips */}
         <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-lg">

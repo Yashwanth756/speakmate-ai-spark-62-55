@@ -55,7 +55,7 @@ export const useSpeechRecognition = (): SpeechRecognitionHook & {
 
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'en-US';
+    recognition.lang = 'en-IN'; // Changed from 'en-US' to Indian English
 
     recognition.onstart = () => {
       setIsListening(true);

@@ -112,9 +112,9 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
   const totalQuestions = 5;
   const timePerQuestion = challenge.id === "quick-fire" ? 10 : 30;
 
-  // Update current transcript when speech recognition transcript changes
+  // Update the current transcript from the speech recognition transcript
   useEffect(() => {
-    if (transcript && isRecording) {
+    if (isRecording) {
       setCurrentTranscript(transcript);
     }
   }, [transcript, isRecording]);
@@ -153,11 +153,15 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
     setIsAnalyzing(true);
 
     const responseTime = (Date.now() - questionStartTime) / 1000;
-    // Use the current transcript state which should have the full transcript
-    const userResponse = currentTranscript.trim().length > 0 ? currentTranscript.trim() : transcript.trim().length > 0 ? transcript.trim() : "No response recorded";
 
-    console.log("Saving transcript:", userResponse);
-    console.log("Word count:", userResponse.split(/\s+/).filter(Boolean).length);
+    // **ALWAYS TAKE THE LATEST VALUE IN THE TRANSCRIPT**
+    let userResponse = transcript.trim();
+    if (!userResponse) userResponse = currentTranscript.trim();
+
+    // Only use 'No response recorded' if both are truly empty
+    if (!userResponse) {
+      userResponse = "No response recorded";
+    }
 
     // Save the transcript for this question
     setSavedTranscripts(prev => {
@@ -194,13 +198,10 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
       setIsAnalyzing(false);
     } else {
       // Session complete: do Gemini bulk analysis!
-      await completeSessionWithDetailedAnalysis([
-        ...responses.slice(0, totalQuestions - 1),
-        responseData
-      ], [
-        ...savedTranscripts.slice(0, totalQuestions - 1),
-        userResponse
-      ]);
+      await completeSessionWithDetailedAnalysis(
+        [...responses.slice(0, totalQuestions - 1), responseData],
+        [...savedTranscripts.slice(0, totalQuestions - 1), userResponse]
+      );
       setIsAnalyzing(false);
     }
   };

@@ -3,8 +3,15 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Award } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export const DailyChallenge: React.FC = () => {
+  const navigate = useNavigate();
+
+  const handleCompleteChallenge = () => {
+    navigate("/grammar");
+  };
+
   return (
     <Card className="mb-4 bg-gradient-to-br from-primary/20 to-accent/20">
       <CardHeader>
@@ -26,10 +33,11 @@ export const DailyChallenge: React.FC = () => {
         </div>
       </CardContent>
       <CardFooter>
-        <Button className="w-full" variant="outline">
+        <Button className="w-full" variant="outline" onClick={handleCompleteChallenge}>
           Complete Challenge
         </Button>
       </CardFooter>
     </Card>
   );
 };
+

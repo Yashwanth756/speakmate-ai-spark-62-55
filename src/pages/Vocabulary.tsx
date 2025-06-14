@@ -77,6 +77,10 @@ const VocabularyTrainer: React.FC = () => {
   const [currentLevel, setCurrentLevel] = useState<"beginner" | "intermediate" | "advanced">("intermediate");
   const [currentWord, setCurrentWord] = useState(mockDictionary[0]);
   const [dailyProgress, setDailyProgress] = useState(2);
+
+  // FIX: Re-add isSpellMode state management
+  const [isSpellMode, setIsSpellMode] = useState(false);
+
   const { transcript, resetTranscript, startListening, stopListening, isListening, supported } = useSpeechRecognition();
   
   const [learnedWords, setLearnedWords] = useState<{

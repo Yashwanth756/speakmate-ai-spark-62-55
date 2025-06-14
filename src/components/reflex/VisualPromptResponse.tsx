@@ -168,20 +168,36 @@ export const VisualPromptResponse: React.FC<VisualPromptResponseProps> = ({
     // End session after 6 rounds or if energy is depleted
     if (round >= 6 || energy <= 0) {
       setTimeout(() => {
-        const avgAccuracy = responses.length > 0 ? responses.reduce((sum, r) => sum + r.accuracy, 0) / responses.length : accuracy;
-        
+        const allResponses = [...responses, responseData];
+        const avgAccuracy = allResponses.length > 0 ? allResponses.reduce((sum, r) => sum + r.accuracy, 0) / allResponses.length : accuracy;
+        const avgPronunciation = allResponses.length > 0 ? allResponses.reduce((sum, r) => sum + (r.pronunciationScore || 0), 0) / allResponses.length : 0;
+        const avgFluency = allResponses.length > 0 ? allResponses.reduce((sum, r) => sum + (r.fluency || 0), 0) / allResponses.length : 0;
+        const avgVocabulary = allResponses.length > 0 ? allResponses.reduce((sum, r) => sum + (r.vocabularyScore || 0), 0) / allResponses.length : 0;
+        const avgConfidence = allResponses.length > 0 ? allResponses.reduce((sum, r) => sum + (r.confidence || 0), 0) / allResponses.length : 0;
+        // "precision" can be mapped to avgAccuracy, "speed" as avgFluency for now
+        const metrics = {
+          pronunciation: Math.round(avgPronunciation),
+          fluency: Math.round(avgFluency),
+          vocabulary: Math.round(avgVocabulary),
+          precision: Math.round(avgAccuracy),
+          accuracy: Math.round(avgAccuracy),
+          speed: Math.round(avgFluency),
+          totalTime: Math.round((Date.now() - sessionStartTime) / 1000)
+        };
+
         onSessionEnd({
           mode: "visual-prompt",
-          responses: [...responses, responseData],
+          responses: allResponses,
           totalTime: (Date.now() - sessionStartTime) / 1000,
-          streak: responses.filter(r => r.accuracy >= 60).length,
+          streak: allResponses.filter(r => r.accuracy >= 60).length,
           score: score + roundScore,
           overallAnalysis: {
             strengths: avgAccuracy >= 70 ? ["Descriptive language", "Good observation"] : ["Effort", "Participation"],
             weaknesses: avgAccuracy < 50 ? ["Descriptive vocabulary", "Observation skills"] : [],
             recommendations: ["Practice describing images", "Build descriptive vocabulary"],
             overallGrade: avgAccuracy >= 80 ? "A" : avgAccuracy >= 60 ? "B" : "C"
-          }
+          },
+          metrics
         });
       }, 3000);
     } else {
@@ -197,29 +213,6 @@ export const VisualPromptResponse: React.FC<VisualPromptResponseProps> = ({
       stopListening();
     } else {
       startListening();
-    }
-  };
-
-  const sessionData: SessionData = {
-    mode: challenge?.id || "visual-response",
-    responses: mockResponses,
-    totalTime,
-    streak: 5,
-    score: 86,
-    overallAnalysis: {
-      strengths: ["Rich descriptions", "Creative language", "Good observation skills"],
-      weaknesses: ["Grammar consistency", "Sentence variety"],
-      recommendations: ["Practice describing abstract concepts", "Work on complex sentence structures"],
-      overallGrade: "A-"
-    },
-    metrics: {
-      pronunciation: 80,
-      fluency: 86,
-      vocabulary: 88,
-      precision: 85,
-      accuracy: 86,
-      speed: 78,
-      totalTime: Math.round(totalTime)
     }
   };
 

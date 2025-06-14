@@ -1,3 +1,4 @@
+
 import { useState, useRef, useCallback } from 'react';
 
 interface SpeechRecognitionHook {
@@ -19,58 +20,84 @@ export const useSpeechRecognition = (): SpeechRecognitionHook & {
   const [lastError, setLastError] = useState<string | null>(null);
   const [interimTranscript, setInterimTranscript] = useState('');
   const recognitionRef = useRef<any>(null);
+  const forceKeepAlive = useRef(false); // If true, keep restarting recognizer
 
   const supported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+
+  const handleResult = useCallback((event: any) => {
+    let finalTranscript = '';
+    let interim = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const tr = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        finalTranscript += tr;
+      } else {
+        interim += tr;
+      }
+    }
+    if (finalTranscript) {
+      setTranscript(prev => prev + finalTranscript);
+    }
+    setInterimTranscript(interim);
+  }, []);
 
   const startListening = useCallback(() => {
     if (!supported) return;
 
+    setLastError(null);
+    setInterimTranscript('');
+    setTranscript('');
+    forceKeepAlive.current = true;
+
     const SpeechRecognitionClass =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    recognitionRef.current = new SpeechRecognitionClass();
-    
-    recognitionRef.current.continuous = true;
-    recognitionRef.current.interimResults = true;
-    recognitionRef.current.lang = 'en-US';
+    const recognition = new SpeechRecognitionClass();
 
-    recognitionRef.current.onstart = () => {
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
       setIsListening(true);
       setLastError(null);
       setInterimTranscript('');
     };
 
-    recognitionRef.current.onresult = (event: any) => {
-      let finalTranscript = '';
-      let interim = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript;
-        } else {
-          interim += event.results[i][0].transcript;
-        }
-      }
-      if (finalTranscript) {
-        setTranscript(prev => prev + finalTranscript);
-      }
-      setInterimTranscript(interim);
-    };
+    recognition.onresult = handleResult;
 
-    recognitionRef.current.onend = () => {
-      setIsListening(false);
-      setInterimTranscript('');
-    };
-
-    recognitionRef.current.onerror = (event: any) => {
+    recognition.onerror = (event: any) => {
       setIsListening(false);
       setLastError(event.error || 'Speech recognition error');
+      // Optionally, try to restart on network/no-speech as well
+      if (forceKeepAlive.current && (event.error === 'no-speech' || event.error === 'network')) {
+        try { recognition.start(); } catch {}
+      }
     };
 
-    recognitionRef.current.start();
-  }, [supported]);
+    recognition.onend = () => {
+      setIsListening(false);
+      setInterimTranscript('');
+      // If still supposed to be listening, restart
+      if (forceKeepAlive.current) {
+        try {
+          recognition.start();
+          setIsListening(true);
+        } catch {}
+      }
+    };
+
+    recognitionRef.current = recognition;
+    try {
+      recognition.start();
+    } catch (e) {
+      setLastError('Unable to start recognition');
+    }
+  }, [supported, handleResult]);
 
   const stopListening = useCallback(() => {
+    forceKeepAlive.current = false;
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
+      try { recognitionRef.current.stop(); } catch {}
       setIsListening(false);
     }
   }, []);

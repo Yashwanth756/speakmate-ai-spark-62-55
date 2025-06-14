@@ -152,11 +152,10 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
     setIsAnalyzing(true);
 
     const responseTime = (Date.now() - questionStartTime) / 1000;
-
-    // Always use *latest* composite (final + interim) transcript, trimmed
+    // Accumulate both final + interim for the freshest version, trimmed
     let userResponse = (transcript + (interimTranscript || "")).trim();
 
-    // Do not use fallback text; just save the transcript as is (if empty, "")
+    // Save only if there is any speech (empty OK, no default fallback)
     setSavedTranscripts(prev => {
       const updated = [...prev];
       updated[currentQuestion] = userResponse;

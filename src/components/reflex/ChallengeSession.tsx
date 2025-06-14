@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -98,7 +97,13 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
   const timerRef = useRef<NodeJS.Timeout>();
 
-  const { transcript, startListening, stopListening, resetTranscript, isListening } = useSpeechRecognition();
+  const {
+    transcript,
+    startListening,
+    stopListening,
+    resetTranscript,
+    isListening
+  } = useSpeechRecognition();
 
   const questions = challengeQuestions[challenge.id as keyof typeof challengeQuestions] || [];
   const totalQuestions = 5;
@@ -107,21 +112,19 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
   useEffect(() => {
     setTimeLeft(timePerQuestion);
     setQuestionStartTime(Date.now());
-  }, [currentQuestion, timePerQuestion]);
+    resetTranscript();
+  }, [currentQuestion, timePerQuestion, resetTranscript]);
 
   useEffect(() => {
     if (timeLeft > 0 && isRecording) {
       timerRef.current = setTimeout(() => {
-        setTimeLeft(timeLeft - 1);
+        setTimeLeft(t => t - 1);
       }, 1000);
     } else if (timeLeft === 0 && isRecording) {
       handleStopRecording();
     }
-
     return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
+      if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [timeLeft, isRecording]);
 
@@ -138,231 +141,214 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
     setIsAnalyzing(true);
 
     const responseTime = (Date.now() - questionStartTime) / 1000;
-    const userResponse = transcript || "No response recorded";
+    const userResponse = transcript.trim().length > 0 ? transcript.trim() : "No response recorded";
 
-    // Save the transcript
-    setSavedTranscripts(prev => [...prev, userResponse]);
+    // Save the transcript for this question immediately (replace, not append full history)
+    setSavedTranscripts(prev => {
+      const updated = [...prev];
+      updated[currentQuestion] = userResponse; // ensure only one transcript per question
+      return updated;
+    });
 
-    try {
-      // Get basic analysis for immediate feedback
-      const analysis = await getLanguageFeedback(userResponse);
-      
-      const responseData = {
-        prompt: questions[currentQuestion],
-        response: userResponse,
-        responseTime,
-        accuracy: analysis.grammarScore || 75,
-        fluency: analysis.fluencyScore || 70,
-        confidence: analysis.vocabularyScore || 72,
-        grammarErrors: [],
-        vocabularyScore: analysis.vocabularyScore || 72,
-        pronunciationScore: Math.floor(Math.random() * 20) + 75,
-        detailedFeedback: analysis.feedback || "Response recorded successfully."
-      };
+    // For metrics, save immediately (including word count!)
+    const responseData = {
+      prompt: questions[currentQuestion],
+      response: userResponse,
+      responseTime,
+      wordCount: userResponse.trim().split(/\s+/).filter(Boolean).length,
+      // Placeholders for scores/analysis, will update after batch feedback
+      accuracy: 0,
+      fluency: 0,
+      confidence: 0,
+      grammarErrors: [],
+      vocabularyScore: 0,
+      pronunciationScore: Math.floor(Math.random() * 20) + 75,
+      detailedFeedback: ""
+    };
 
-      setResponses(prev => [...prev, responseData]);
+    setResponses(prev => {
+      const updated = [...prev];
+      updated[currentQuestion] = responseData;
+      return updated;
+    });
 
-      // Move to next question or finish session
-      if (currentQuestion < totalQuestions - 1) {
-        setCurrentQuestion(currentQuestion + 1);
-        setTimeLeft(timePerQuestion);
-        resetTranscript();
-      } else {
-        // Session complete - send all data for comprehensive analysis
-        const allResponses = [...responses, responseData];
-        const allTranscripts = [...savedTranscripts, userResponse];
-        await completeSessionWithDetailedAnalysis(allResponses, allTranscripts);
-      }
-    } catch (error) {
-      console.error("Error analyzing response:", error);
-      // Handle error gracefully
-      const responseData = {
-        prompt: questions[currentQuestion],
-        response: userResponse,
-        responseTime,
-        accuracy: 60,
-        fluency: 60,
-        confidence: 60,
-        grammarErrors: [],
-        vocabularyScore: 60,
-        pronunciationScore: 60,
-        detailedFeedback: "Analysis temporarily unavailable."
-      };
-      
-      setResponses(prev => [...prev, responseData]);
-      
-      if (currentQuestion < totalQuestions - 1) {
-        setCurrentQuestion(currentQuestion + 1);
-        setTimeLeft(timePerQuestion);
-        resetTranscript();
-      } else {
-        const allResponses = [...responses, responseData];
-        const allTranscripts = [...savedTranscripts, userResponse];
-        await completeSessionWithDetailedAnalysis(allResponses, allTranscripts);
-      }
+    // Proceed to next question or complete
+    if (currentQuestion < totalQuestions - 1) {
+      setCurrentQuestion(currentQuestion + 1);
+      setTimeLeft(timePerQuestion);
+      setIsAnalyzing(false);
+    } else {
+      // Session complete: do Gemini bulk analysis!
+      await completeSessionWithDetailedAnalysis([
+        ...responses.slice(0, totalQuestions - 1),
+        responseData  // include last one
+      ], [
+        ...savedTranscripts.slice(0, totalQuestions - 1),
+        userResponse
+      ]);
+      setIsAnalyzing(false);
     }
-
-    setIsAnalyzing(false);
   };
 
-  const completeSessionWithDetailedAnalysis = async (allResponses: any[], allTranscripts: string[]) => {
+  async function completeSessionWithDetailedAnalysis(allResponses: any[], allTranscripts: string[]) {
     const totalTime = (Date.now() - sessionStartTime) / 1000;
-    
+
     try {
-      // Create comprehensive analysis prompt with all questions and answers
-      const comprehensiveAnalysisPrompt = `
-        Analyze this complete English speaking session with ${totalQuestions} questions and responses.
-        Provide detailed analysis for each response and overall performance.
+      // Batched prompt: instruct Gemini to deeply analyze all at once
+      const bulkPrompt = `
+        For an English Reflex Challenge, you are given 5 questions AND the corresponding student responses for each. 
+        For each pair, provide a JSON array where each element has these fields:
+        {
+          "question": "",
+          "original": "",                   // student's answer verbatim
+          "corrected": "",                  // provide a corrected/natural version
+          "explanation": "",                // briefly explain any mistakes
+          "broken_rules": [],               // which grammar/vocab rules were broken
+          "accuracy": 0,                    // 0-100, quality of answer
+          "fluency": 0,
+          "pronunciation": 0,
+          "vocabulary": 0,
+          "precision": 0,
+          "speed": 0                        // 0-100 estimate of how quickly and fluently expressed
+        }
 
-        CHALLENGE TYPE: ${challenge.title}
-        
-        ${questions.map((question, index) => `
-        QUESTION ${index + 1}: ${question}
-        STUDENT RESPONSE: "${allTranscripts[index] || 'No response'}"
-        `).join('\n')}
-
-        Please provide a comprehensive analysis in the following format:
-
-        FOR EACH RESPONSE (1-${totalQuestions}):
-        - Grammar Score (0-100): [score] - [specific grammar issues found]
-        - Fluency Score (0-100): [score] - [fluency assessment]
-        - Vocabulary Score (0-100): [score] - [vocabulary usage assessment]
-        - Accuracy Score (0-100): [score] - [how well they answered the question]
-        - Pronunciation Assessment: [comments on pronunciation based on word choice and structure]
-        - Specific Mistakes: [list all grammar, vocabulary, and structural errors]
-        - Detailed Feedback: [constructive feedback for improvement]
-
-        OVERALL SESSION ANALYSIS:
-        - Average Grammar Score: [0-100]
-        - Average Fluency Score: [0-100]
-        - Average Vocabulary Score: [0-100]
-        - Average Accuracy Score: [0-100]
-        - Final Overall Score: [0-100]
-        - Top 3 Strengths: [list strengths]
-        - Top 3 Weaknesses: [list areas for improvement]
-        - Specific Recommendations: [actionable advice]
-        - Overall Grade: [A+, A, B+, B, C+, C, D]
-
-        Be detailed and educational in your analysis. Focus on helping the student improve their English speaking skills.
+        Questions and Responses:
+        ${questions.map((q, i) => `Q${i+1}: "${q}"\nA${i+1}: "${allTranscripts[i] || "No response"}"`).join('\n')}
       `;
 
-      console.log("Sending comprehensive analysis request to Gemini...");
-      const detailedAnalysis = await getLanguageFeedback(comprehensiveAnalysisPrompt);
-      
-      // Parse the response and update all response data with detailed analysis
-      const updatedResponses = allResponses.map((response, index) => ({
-        ...response,
-        detailedFeedback: extractDetailedFeedback(detailedAnalysis.feedback, index + 1),
-        grammarErrors: extractGrammarErrors(detailedAnalysis.feedback, index + 1)
-      }));
+      // Use Gemini API
+      const { feedback } = await getLanguageFeedback(bulkPrompt);
 
-      // Extract overall scores and analysis
-      const overallScores = extractOverallScores(detailedAnalysis.feedback);
-      
+      // Try to extract array from feedback
+      const arrayMatch = feedback.match(/\[(.|\s|\n)*\]/m);
+      let resultsArr = [];
+      if (arrayMatch) {
+        try {
+          resultsArr = JSON.parse(arrayMatch[0]);
+        } catch {
+          // fallback: try to fix JSON with loose parsing or default reporting
+          resultsArr = [];
+        }
+      }
+
+      // Fallback: try to parse as JSON directly
+      if (!resultsArr.length) {
+        try {
+          resultsArr = JSON.parse(feedback);
+        } catch {
+          // fallback: dummy default
+          resultsArr = [];
+        }
+      }
+
+      // If still failed, fallback to put empty analysis and user transcript per response
+      if (!Array.isArray(resultsArr) || resultsArr.length === 0) {
+        resultsArr = allResponses.map((resp, i) => ({
+          question: questions[i],
+          original: allTranscripts[i] || "",
+          corrected: "",
+          explanation: "",
+          broken_rules: [],
+          accuracy: 60,
+          fluency: 60,
+          pronunciation: 80,
+          vocabulary: 60,
+          precision: 60,
+          speed: 60
+        }));
+      }
+
+      // Update responses with metrics from Gemini and assemble summary metrics:
+      let sumPronunciation = 0, sumFluency = 0, sumVocabulary = 0;
+      let sumPrecision = 0, sumAccuracy = 0, sumSpeed = 0;
+      let answerReport = [];
+
+      const responsesWithAnalysis = resultsArr.map((gemini, i) => {
+        sumPronunciation += gemini.pronunciation ?? 0;
+        sumFluency += gemini.fluency ?? 0;
+        sumVocabulary += gemini.vocabulary ?? 0;
+        sumPrecision += gemini.precision ?? 0;
+        sumAccuracy += gemini.accuracy ?? 0;
+        sumSpeed += gemini.speed ?? 0;
+        answerReport.push({
+          question: gemini.question,
+          response: gemini.original,
+          corrected: gemini.corrected,
+          explanation: gemini.explanation,
+          grammarErrors: (gemini.broken_rules || []).map(rule => ({
+            error: rule,
+            correction: gemini.corrected,
+            explanation: gemini.explanation
+          })),
+          accuracy: gemini.accuracy ?? 60,
+          fluency: gemini.fluency ?? 60,
+          confidence: Math.round((gemini.fluency + gemini.vocabulary + gemini.precision) / 3) || 65,
+          vocabularyScore: gemini.vocabulary ?? 60,
+          pronunciationScore: gemini.pronunciation ?? 75,
+          speed: gemini.speed ?? 60,
+          detailedFeedback: gemini.explanation || ""
+        });
+        return answerReport[i];
+      });
+
+      // Calculate overall metrics
+      const n = resultsArr.length || 1;
       const sessionData: SessionData = {
         mode: challenge.id,
-        responses: updatedResponses,
+        responses: responsesWithAnalysis,
         totalTime,
-        streak: calculateStreak(updatedResponses),
-        score: overallScores.finalScore,
+        streak: responsesWithAnalysis.reduce((streak, r) => (r.accuracy >= 70 ? streak + 1 : streak), 0),
+        score: Math.round(sumAccuracy / n),
         overallAnalysis: {
-          strengths: overallScores.strengths,
-          weaknesses: overallScores.weaknesses,
-          recommendations: overallScores.recommendations,
-          overallGrade: overallScores.grade
+          strengths: ["Prompt completion", "Participation", "Effort"],
+          weaknesses: ["See question explanations for mistakes"],
+          recommendations: ["Practice grammar rules highlighted in feedback", "Review corrected answers for improvement"],
+          overallGrade: getGradeFromScore(sumAccuracy / n)
+        },
+        metrics: {
+          pronunciation: Math.round(sumPronunciation / n),
+          fluency: Math.round(sumFluency / n),
+          vocabulary: Math.round(sumVocabulary / n),
+          precision: Math.round(sumPrecision / n),
+          accuracy: Math.round(sumAccuracy / n),
+          speed: Math.round(sumSpeed / n),
+          totalTime: Math.round(totalTime)
         }
       };
 
-      console.log("Session analysis complete, transitioning to results...");
       onSessionComplete(sessionData);
+
     } catch (error) {
-      console.error("Error generating comprehensive analysis:", error);
-      // Provide fallback analysis
-      const averageAccuracy = allResponses.reduce((sum, r) => sum + r.accuracy, 0) / allResponses.length;
-      
+      console.error("Error with batch Gemini feedback:", error);
+      // Fallback summary with what we have
+      const n = allResponses.length;
+
+      const sum = (key: string) => allResponses.reduce((tot, r) => tot + (r[key] || 60), 0);
       const sessionData: SessionData = {
         mode: challenge.id,
         responses: allResponses,
         totalTime,
-        streak: calculateStreak(allResponses),
-        score: Math.round(averageAccuracy),
+        streak: allResponses.reduce((streak, r) => (r.accuracy >= 70 ? streak + 1 : streak), 0),
+        score: Math.round(sum("accuracy") / n),
         overallAnalysis: {
-          strengths: ["Completed all challenges", "Showed consistent effort", "Practiced speaking skills"],
-          weaknesses: ["Analysis temporarily unavailable"],
-          recommendations: ["Continue practicing daily", "Focus on pronunciation", "Expand vocabulary"],
-          overallGrade: getGradeFromScore(averageAccuracy)
+          strengths: ["Completed all challenges", "Consistent effort"],
+          weaknesses: ["Gemini feedback unavailable"],
+          recommendations: ["Try again later for detailed feedback"],
+          overallGrade: getGradeFromScore(sum("accuracy") / n)
+        },
+        metrics: {
+          pronunciation: Math.round(sum("pronunciationScore") / n),
+          fluency: Math.round(sum("fluency") / n),
+          vocabulary: Math.round(sum("vocabularyScore") / n),
+          precision: Math.round(sum("confidence") / n),
+          accuracy: Math.round(sum("accuracy") / n),
+          speed: Math.round(sum("speed") / n),
+          totalTime: Math.round(totalTime)
         }
       };
-      
       onSessionComplete(sessionData);
     }
-  };
-
-  const extractDetailedFeedback = (analysisText: string, questionNumber: number): string => {
-    // Extract specific feedback for this question from the analysis
-    const questionPattern = new RegExp(`QUESTION ${questionNumber}[\\s\\S]*?Detailed Feedback:\\s*([^\\n]*(?:\\n(?!QUESTION|OVERALL)[^\\n]*)*)`, 'i');
-    const match = analysisText.match(questionPattern);
-    return match ? match[1].trim() : "Detailed analysis completed.";
-  };
-
-  const extractGrammarErrors = (analysisText: string, questionNumber: number) => {
-    // Extract grammar errors for this question
-    const mistakesPattern = new RegExp(`QUESTION ${questionNumber}[\\s\\S]*?Specific Mistakes:\\s*([^\\n]*(?:\\n(?!QUESTION|OVERALL)[^\\n]*)*)`, 'i');
-    const match = analysisText.match(mistakesPattern);
-    
-    if (match) {
-      const mistakes = match[1].trim().split(',').filter(m => m.trim());
-      return mistakes.map(mistake => ({
-        error: mistake.trim(),
-        correction: "See detailed feedback",
-        explanation: "Refer to the detailed analysis for correction guidance"
-      }));
-    }
-    return [];
-  };
-
-  const extractOverallScores = (analysisText: string) => {
-    // Extract overall scores and analysis from the response
-    const finalScoreMatch = analysisText.match(/Final Overall Score:\s*(\d+)/i);
-    const gradeMatch = analysisText.match(/Overall Grade:\s*([A-D][+]?)/i);
-    const strengthsMatch = analysisText.match(/Top 3 Strengths:\s*([^]*?)(?=Top 3 Weaknesses|$)/i);
-    const weaknessesMatch = analysisText.match(/Top 3 Weaknesses:\s*([^]*?)(?=Specific Recommendations|$)/i);
-    const recommendationsMatch = analysisText.match(/Specific Recommendations:\s*([^]*?)(?=Overall Grade|$)/i);
-
-    return {
-      finalScore: finalScoreMatch ? parseInt(finalScoreMatch[1]) : 75,
-      grade: gradeMatch ? gradeMatch[1] : "B",
-      strengths: strengthsMatch ? strengthsMatch[1].trim().split('\n').filter(s => s.trim()).slice(0, 3) : ["Good effort", "Consistent participation", "Speaking confidence"],
-      weaknesses: weaknessesMatch ? weaknessesMatch[1].trim().split('\n').filter(w => w.trim()).slice(0, 3) : ["Grammar accuracy", "Vocabulary range", "Fluency"],
-      recommendations: recommendationsMatch ? recommendationsMatch[1].trim().split('\n').filter(r => r.trim()).slice(0, 5) : ["Practice daily speaking", "Focus on grammar", "Expand vocabulary", "Read more English content", "Listen to native speakers"]
-    };
-  };
-
-  const calculateStreak = (responses: any[]) => {
-    let streak = 0;
-    let currentStreak = 0;
-    
-    responses.forEach(response => {
-      if (response.accuracy >= 70) {
-        currentStreak++;
-        streak = Math.max(streak, currentStreak);
-      } else {
-        currentStreak = 0;
-      }
-    });
-    
-    return streak;
-  };
-
-  const getGradeFromScore = (score: number): string => {
-    if (score >= 90) return "A+";
-    if (score >= 85) return "A";
-    if (score >= 80) return "B+";
-    if (score >= 75) return "B";
-    if (score >= 70) return "C+";
-    if (score >= 65) return "C";
-    return "D";
-  };
+  }
 
   const progress = ((currentQuestion + 1) / totalQuestions) * 100;
 

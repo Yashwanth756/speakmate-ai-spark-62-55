@@ -236,7 +236,6 @@ const VocabularyTrainer: React.FC = () => {
                     word={currentWord} 
                     onCorrect={markWordAsLearned}
                     onNext={getRandomWord}
-                    showExample={false}
                   />
                 )}
 

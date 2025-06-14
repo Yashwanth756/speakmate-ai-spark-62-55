@@ -7,6 +7,7 @@ import { Mic, Brain, Target, RotateCcw, Eye, Zap, Heart, BookOpen } from "lucide
 import { ChallengeSession } from "@/components/reflex/ChallengeSession";
 import { DetailedAnalysis } from "@/components/reflex/DetailedAnalysis";
 import { sendMessageToGemini } from "@/lib/gemini-api";
+import { useToast } from "@/hooks/use-toast";
 
 // Export SessionData type for other components
 export interface SessionData {
@@ -43,6 +44,7 @@ const ReflexChallenge = () => {
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [isGettingNewChallenge, setIsGettingNewChallenge] = useState(false);
+  const { toast } = useToast();
 
   const challenges = [
     {

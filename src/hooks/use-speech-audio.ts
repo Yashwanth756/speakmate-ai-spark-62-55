@@ -28,7 +28,7 @@ export const useSpeechAudio = (): SpeechAudioHook => {
     
     recognitionRef.current.continuous = true;
     recognitionRef.current.interimResults = true;
-    recognitionRef.current.lang = 'en-US';
+    recognitionRef.current.lang = 'en-IN'; // Changed from 'en-US' to Indian English
 
     recognitionRef.current.onstart = () => {
       setIsListening(true);

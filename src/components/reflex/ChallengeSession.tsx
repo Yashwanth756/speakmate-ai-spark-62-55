@@ -114,17 +114,22 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
   // Compose the live transcript from finalized + interim for UI
   const liveTranscript = transcript + (interimTranscript || '');
 
-  // Update the current transcript from the speech recognition transcript
-  useEffect(() => {
-    if (isRecording && transcript) {
-    }
-  }, [transcript, isRecording]);
+  // NEW: Local state to hold up-to-date cumulative transcript for the live display
+  const [userTranscript, setUserTranscript] = useState("");
 
+  // At the start of each question, reset transcript and userTranscript
   useEffect(() => {
     setTimeLeft(timePerQuestion);
     setQuestionStartTime(Date.now());
     resetTranscript();
+    setUserTranscript(""); // Clear display transcript at new question
   }, [currentQuestion, timePerQuestion, resetTranscript]);
+
+  // Append transcript as new finalized speech comes in. Also, show interim phrase live. 
+  useEffect(() => {
+    // Always join finalized and interim for best live feedback
+    setUserTranscript((transcript + (interimTranscript || "")).trim());
+  }, [transcript, interimTranscript]);
 
   useEffect(() => {
     if (timeLeft > 0 && isRecording) {
@@ -446,7 +451,7 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
         </Card>
 
       {/* Live Transcript Display */}
-      {(isRecording || transcript || interimTranscript) && (
+      {(isRecording || userTranscript) && (
         <Card className="mb-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-lg">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
@@ -456,7 +461,7 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
           </CardHeader>
           <CardContent>
             <TranscriptDisplay
-              transcript={liveTranscript}
+              transcript={userTranscript}
               isRecording={isRecording}
             />
           </CardContent>

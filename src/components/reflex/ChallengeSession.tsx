@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -96,6 +97,7 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
   const [savedTranscripts, setSavedTranscripts] = useState<string[]>([]);
   const [sessionStartTime, setSessionStartTime] = useState<number>(Date.now());
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
+  const [currentTranscript, setCurrentTranscript] = useState("");
   const timerRef = useRef<NodeJS.Timeout>();
 
   const {
@@ -110,10 +112,18 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
   const totalQuestions = 5;
   const timePerQuestion = challenge.id === "quick-fire" ? 10 : 30;
 
+  // Update current transcript when speech recognition transcript changes
+  useEffect(() => {
+    if (transcript && isRecording) {
+      setCurrentTranscript(transcript);
+    }
+  }, [transcript, isRecording]);
+
   useEffect(() => {
     setTimeLeft(timePerQuestion);
     setQuestionStartTime(Date.now());
     resetTranscript();
+    setCurrentTranscript("");
   }, [currentQuestion, timePerQuestion, resetTranscript]);
 
   useEffect(() => {
@@ -132,6 +142,7 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
   const handleStartRecording = () => {
     setIsRecording(true);
     resetTranscript();
+    setCurrentTranscript("");
     startListening();
     setQuestionStartTime(Date.now());
   };
@@ -142,22 +153,25 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
     setIsAnalyzing(true);
 
     const responseTime = (Date.now() - questionStartTime) / 1000;
-    const userResponse = transcript.trim().length > 0 ? transcript.trim() : "No response recorded";
+    // Use the current transcript state which should have the full transcript
+    const userResponse = currentTranscript.trim().length > 0 ? currentTranscript.trim() : transcript.trim().length > 0 ? transcript.trim() : "No response recorded";
 
-    // Save the transcript for this question immediately (replace, not append full history)
+    console.log("Saving transcript:", userResponse);
+    console.log("Word count:", userResponse.split(/\s+/).filter(Boolean).length);
+
+    // Save the transcript for this question
     setSavedTranscripts(prev => {
       const updated = [...prev];
-      updated[currentQuestion] = userResponse; // ensure only one transcript per question
+      updated[currentQuestion] = userResponse;
       return updated;
     });
 
-    // For metrics, save immediately (including word count!)
+    // For metrics, save immediately
     const responseData = {
       prompt: questions[currentQuestion],
       response: userResponse,
       responseTime,
       wordCount: userResponse.trim().split(/\s+/).filter(Boolean).length,
-      // Placeholders for scores/analysis, will update after batch feedback
       accuracy: 0,
       fluency: 0,
       confidence: 0,
@@ -182,7 +196,7 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
       // Session complete: do Gemini bulk analysis!
       await completeSessionWithDetailedAnalysis([
         ...responses.slice(0, totalQuestions - 1),
-        responseData  // include last one
+        responseData
       ], [
         ...savedTranscripts.slice(0, totalQuestions - 1),
         userResponse
@@ -439,8 +453,8 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
           </CardContent>
         </Card>
 
-        {/* Live Transcript Display */}
-        {(isRecording || transcript) && (
+        {/* Live Transcript Display - Always show when recording or when there's a transcript */}
+        {(isRecording || currentTranscript || transcript) && (
           <Card className="mb-6">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
@@ -451,13 +465,13 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
             <CardContent>
               <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 min-h-[100px]">
                 <p className="text-lg">
-                  {transcript || "Start speaking to see your words appear here..."}
+                  {currentTranscript || transcript || "Start speaking to see your words appear here..."}
                   {isRecording && <span className="animate-pulse">|</span>}
                 </p>
               </div>
-              {transcript && (
+              {(currentTranscript || transcript) && (
                 <div className="mt-2 text-sm text-gray-600">
-                  Word count: {transcript.split(' ').filter(word => word.trim()).length}
+                  Word count: {(currentTranscript || transcript).split(/\s+/).filter(word => word.trim()).length}
                 </div>
               )}
             </CardContent>
@@ -477,7 +491,7 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
                     <span className="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-xs">
                       ✓
                     </span>
-                    <span>Question {index + 1}: Response saved ({savedTranscript.split(' ').length} words)</span>
+                    <span>Question {index + 1}: Response saved ({savedTranscript.split(/\s+/).filter(Boolean).length} words)</span>
                   </div>
                 ))}
               </div>

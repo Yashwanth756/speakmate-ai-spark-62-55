@@ -200,6 +200,29 @@ export const VisualPromptResponse: React.FC<VisualPromptResponseProps> = ({
     }
   };
 
+  const sessionData: SessionData = {
+    mode: challenge?.id || "visual-response",
+    responses: mockResponses,
+    totalTime,
+    streak: 5,
+    score: 86,
+    overallAnalysis: {
+      strengths: ["Rich descriptions", "Creative language", "Good observation skills"],
+      weaknesses: ["Grammar consistency", "Sentence variety"],
+      recommendations: ["Practice describing abstract concepts", "Work on complex sentence structures"],
+      overallGrade: "A-"
+    },
+    metrics: {
+      pronunciation: 80,
+      fluency: 86,
+      vocabulary: 88,
+      precision: 85,
+      accuracy: 86,
+      speed: 78,
+      totalTime: Math.round(totalTime)
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4">
       

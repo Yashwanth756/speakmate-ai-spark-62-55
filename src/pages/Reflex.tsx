@@ -175,7 +175,10 @@ Do not explain or answer, just give the object.
       });
       setShowAnalysis(false);
     } catch {
-      toast.error("Could not get new challenge from Gemini.");
+      toast({
+        title: "Could not get new challenge from Gemini.",
+        variant: "destructive"
+      });
     }
     setIsGettingNewChallenge(false);
   };

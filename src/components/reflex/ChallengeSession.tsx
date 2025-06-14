@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -90,7 +89,7 @@ const ChallengeSession: React.FC<ChallengeSessionProps> = ({
   const [sessionResponses, setSessionResponses] = useState<SessionData["responses"]>([]);
   const [totalSessionTime, setTotalSessionTime] = useState(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [timerId, setTimerId] = useState<NodeJS.Timeout | null>(null);
+  const [timerIds, setTimerIds] = useState<{ intervalId: ReturnType<typeof setInterval> | null, timeoutId: ReturnType<typeof setTimeout> | null }>({ intervalId: null, timeoutId: null });
   const { transcript, isListening, supported, startListening, stopListening, resetTranscript } = useSpeechRecognition();
 
   // Start live transcription when recording starts
@@ -105,31 +104,27 @@ const ChallengeSession: React.FC<ChallengeSessionProps> = ({
       const intervalId = setInterval(() => {
         setElapsedTime((Date.now() - startTime) / 1000);
       }, 100);
-      setTimerId(intervalId);
 
       // Start 30 second timeout for the question
       const timeoutId = setTimeout(() => {
         handleAutoSubmit();
       }, QUESTION_TIME_LIMIT * 1000);
 
-      // Save timeoutId in ref for clearing if needed
-      (timerId as any)?.timeoutId && clearTimeout((timerId as any).timeoutId);
-      (intervalId as any).timeoutId = timeoutId;
-      setTimerId(intervalId);
+      // Save intervalId and timeoutId in state
+      setTimerIds({ intervalId, timeoutId });
     } else {
       stopListening();
-      if (timerId) {
-        clearInterval(timerId);
-        if ((timerId as any).timeoutId) clearTimeout((timerId as any).timeoutId);
-      }
+      // Clear both timers
+      if (timerIds.intervalId) clearInterval(timerIds.intervalId);
+      if (timerIds.timeoutId) clearTimeout(timerIds.timeoutId);
+      setTimerIds({ intervalId: null, timeoutId: null });
     }
     // Cleanup
     return () => {
       stopListening();
-      if (timerId) {
-        clearInterval(timerId);
-        if ((timerId as any).timeoutId) clearTimeout((timerId as any).timeoutId);
-      }
+      if (timerIds.intervalId) clearInterval(timerIds.intervalId);
+      if (timerIds.timeoutId) clearTimeout(timerIds.timeoutId);
+      setTimerIds({ intervalId: null, timeoutId: null });
     };
     // eslint-disable-next-line
   }, [isRecording]);
@@ -155,10 +150,10 @@ const ChallengeSession: React.FC<ChallengeSessionProps> = ({
   const finishRecordingAndSave = useCallback(
     async (autoSubmit = false) => {
       setIsRecording(false);
-      if (timerId) {
-        clearInterval(timerId);
-        if ((timerId as any).timeoutId) clearTimeout((timerId as any).timeoutId);
-      }
+      // Clear both timers
+      if (timerIds.intervalId) clearInterval(timerIds.intervalId);
+      if (timerIds.timeoutId) clearTimeout(timerIds.timeoutId);
+      setTimerIds({ intervalId: null, timeoutId: null });
       setIsAnalyzing(true);
 
       const prompt = questions[questionIndex];
@@ -278,7 +273,7 @@ const ChallengeSession: React.FC<ChallengeSessionProps> = ({
       }, 600); // feedback transition
     },
     // eslint-disable-next-line
-    [elapsedTime, questionIndex, userResponse, questions, challenge.title, sessionResponses, totalSessionTime]
+    [elapsedTime, questionIndex, userResponse, questions, challenge.title, sessionResponses, totalSessionTime, timerIds]
   );
 
   // Manual stop recording

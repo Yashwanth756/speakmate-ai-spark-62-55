@@ -1,20 +1,18 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Default API key (will be overridden by user-provided key if available)
-const DEFAULT_API_KEY = "AIzaSyBcZENeo3gkU6YVQYKCYf8EhOltT87q4es";
+// New Default API key (set for all users unless they set their own)
+const DEFAULT_API_KEY = "AIzaSyCc0ZYxEuoocwAZ5jKM8fWQEd0wz6sh4uI";
 
 // Initialize with a function to get the API key (from localStorage if available)
 const getApiKey = (): string => {
-  // Always get the freshest key from localStorage (no caching)
+  // If user has saved an API key, always use it.
   const userProvidedKey = localStorage.getItem("gemini-api-key");
-  
-  // Check if the key exists and is not empty
-  if (userProvidedKey && userProvidedKey.trim().length > 0) {
+  if (userProvidedKey !== null) {
+    // Respect empty string if they've intentionally removed it
     return userProvidedKey.trim();
   }
-  
-  // Return null if no key is found
-  return "";
+  // If no saved key, use the new default
+  return DEFAULT_API_KEY;
 };
 
 // Create a function to get a fresh instance of the API with the current key

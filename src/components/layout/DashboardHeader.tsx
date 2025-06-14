@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -46,6 +45,15 @@ export function DashboardHeader({ onMenuClick, userName = "User", userEmail = "u
     }
     
     localStorage.setItem('dark-mode', newDarkMode.toString());
+  };
+
+  // Generate avatar image url based on first letter of userName
+  const getAvatarUrl = () => {
+    if (userName && userName[0]) {
+      // You can tweak the color/background parameters as needed
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(userName[0])}&background=random&color=fff&size=128`;
+    }
+    return "/placeholder.svg";
   };
 
   return (
@@ -107,7 +115,7 @@ export function DashboardHeader({ onMenuClick, userName = "User", userEmail = "u
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full border-2 border-primary/20 hover:border-primary/50 transition-colors">
                 <Avatar className="h-9 w-9">
-                  <AvatarImage src="/placeholder.svg" alt={userName} />
+                  <AvatarImage src={getAvatarUrl()} alt={userName} />
                   <AvatarFallback className="bg-primary/10 text-primary font-semibold">
                     {userName.charAt(0).toUpperCase()}
                   </AvatarFallback>
@@ -145,4 +153,3 @@ export function DashboardHeader({ onMenuClick, userName = "User", userEmail = "u
     </header>
   );
 }
-

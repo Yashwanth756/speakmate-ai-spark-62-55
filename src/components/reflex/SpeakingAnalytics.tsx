@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,10 +24,6 @@ export const SpeakingAnalytics: React.FC<SpeakingAnalyticsProps> = ({
   
   const averageConfidence = sessionData.responses.length > 0 
     ? sessionData.responses.reduce((sum, r) => sum + r.confidence, 0) / sessionData.responses.length 
-    : 0;
-
-  const averageResponseTime = sessionData.responses.length > 0 
-    ? sessionData.responses.reduce((sum, r) => sum + r.responseTime, 0) / sessionData.responses.length 
     : 0;
 
   const getOverallGrade = () => {
@@ -75,8 +70,6 @@ export const SpeakingAnalytics: React.FC<SpeakingAnalyticsProps> = ({
       return "Work on fluency: Practice speaking more smoothly and naturally.";
     } else if (averageConfidence < 60) {
       return "Build confidence: Speak louder and with more conviction.";
-    } else if (averageResponseTime > 3) {
-      return "Speed up: Try to respond faster while maintaining quality.";
     } else {
       return "Excellent work! Try a harder mode to challenge yourself further.";
     }
@@ -111,26 +104,6 @@ export const SpeakingAnalytics: React.FC<SpeakingAnalyticsProps> = ({
         {/* Main Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           
-          {/* Speed */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Clock className="h-5 w-5 text-blue-500" />
-                Speed
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold mb-2">
-                {averageResponseTime.toFixed(1)}s
-              </div>
-              <p className="text-sm text-gray-600 dark:text-gray-300">Avg response time</p>
-              <Progress 
-                value={Math.max(0, 100 - (averageResponseTime * 10))} 
-                className="mt-3 h-2" 
-              />
-            </CardContent>
-          </Card>
-
           {/* Accuracy */}
           <Card>
             <CardHeader className="pb-3">
@@ -282,10 +255,10 @@ export const SpeakingAnalytics: React.FC<SpeakingAnalyticsProps> = ({
                     </span>
                   </div>
                   <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
-                    "{response.prompt}"
+                    "{response.question}"
                   </p>
                   <p className="text-sm italic">
-                    Your response: "{response.response || 'No response'}"
+                    Your response: "{response.original || 'No response'}"
                   </p>
                 </div>
               ))}

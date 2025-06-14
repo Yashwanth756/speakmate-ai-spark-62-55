@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -153,17 +152,14 @@ export const DetailedAnalysis: React.FC<DetailedAnalysisProps> = ({
                       {response.accuracy}% Accuracy
                     </Badge>
                   </div>
-                  
                   <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 mb-3">
                     <p className="text-sm font-medium mb-1">Prompt:</p>
-                    <p className="text-sm italic">{response.prompt}</p>
+                    <p className="text-sm italic">{response.question}</p>
                   </div>
-                  
                   <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 mb-3">
                     <p className="text-sm font-medium mb-1">Your Response:</p>
-                    <p className="text-sm">{response.response}</p>
+                    <p className="text-sm">{response.original}</p>
                   </div>
-
                   {/* Score Breakdown */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                     <div>
@@ -182,11 +178,11 @@ export const DetailedAnalysis: React.FC<DetailedAnalysisProps> = ({
                       <div className="text-xs mt-1">{response.vocabularyScore}%</div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-600">Response Time</div>
-                      <div className="text-sm font-medium">{response.responseTime.toFixed(1)}s</div>
+                      <div className="text-xs text-gray-600">Pronunciation</div>
+                      <Progress value={response.pronunciationScore} className="h-2" />
+                      <div className="text-xs mt-1">{response.pronunciationScore}%</div>
                     </div>
                   </div>
-
                   {/* Grammar Errors */}
                   {response.grammarErrors && response.grammarErrors.length > 0 && (
                     <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3 mb-3">
@@ -203,8 +199,6 @@ export const DetailedAnalysis: React.FC<DetailedAnalysisProps> = ({
                       ))}
                     </div>
                   )}
-
-                  {/* Detailed Feedback */}
                   <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
                     <h5 className="text-sm font-semibold mb-2">AI Feedback:</h5>
                     <p className="text-sm">{response.detailedFeedback}</p>

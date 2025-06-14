@@ -97,20 +97,26 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
     }
 
     // Compose the metadata and content fields differently per assignment type
-    let assignmentToCreate = { ...newAssignment, targetClass: selectedClass, targetSection: selectedSection, createdBy: user?.fullName || 'Unknown Teacher', status: 'published' };
+    let assignmentToCreate: Omit<Assignment, 'id' | 'createdAt' | 'updatedAt'> = {
+      ...newAssignment,
+      targetClass: selectedClass,
+      targetSection: selectedSection,
+      createdBy: user?.fullName || 'Unknown Teacher',
+      status: "published", // fixes TS error
+    };
+
     if (newAssignment.type === 'puzzle') {
       assignmentToCreate.title = newAssignment.title || 'Word Puzzle';
-      // Optionally, allow specifying a puzzle description in content
       assignmentToCreate.content = newAssignment.content || 'Word puzzle assignment';
       assignmentToCreate.metadata = { ...assignmentToCreate.metadata, words: puzzleWords };
     } else if (newAssignment.type === 'story') {
       assignmentToCreate.title = newAssignment.title;
-      assignmentToCreate.content = newAssignment.content; // Single question or prompt
-      assignmentToCreate.metadata = {}; // Optionally add extra fields for stories
+      assignmentToCreate.content = newAssignment.content;
+      assignmentToCreate.metadata = {};
     } else if (newAssignment.type === 'reflex') {
       assignmentToCreate.title = newAssignment.title || 'Reflex Challenge';
-      assignmentToCreate.content = newAssignment.content; // Single question or prompt
-      assignmentToCreate.metadata = {}; // For now, empty metadata
+      assignmentToCreate.content = newAssignment.content;
+      assignmentToCreate.metadata = {};
     }
 
     createAssignment(assignmentToCreate);

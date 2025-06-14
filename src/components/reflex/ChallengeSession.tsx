@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Mic, MicOff, Clock, ArrowLeft, Play, Square } from "lucide-react";
+import { Mic, Clock, ArrowLeft, Play, Square } from "lucide-react";
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { getLanguageFeedback } from "@/lib/gemini-api";
 import { SessionData } from "@/pages/Reflex";
@@ -110,11 +110,11 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
 
   const questions = challengeQuestions[challenge.id as keyof typeof challengeQuestions] || [];
   const totalQuestions = 5;
-  const timePerQuestion = challenge.id === "quick-fire" ? 10 : 30;
+  const timePerQuestion = challenge.id === "quick-fire" ? 5 : 30;
 
   // Update the current transcript from the speech recognition transcript
   useEffect(() => {
-    if (isRecording) {
+    if (isRecording && transcript) {
       setCurrentTranscript(transcript);
     }
   }, [transcript, isRecording]);
@@ -154,14 +154,8 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
 
     const responseTime = (Date.now() - questionStartTime) / 1000;
 
-    // **ALWAYS TAKE THE LATEST VALUE IN THE TRANSCRIPT**
-    let userResponse = transcript.trim();
-    if (!userResponse) userResponse = currentTranscript.trim();
-
-    // Only use 'No response recorded' if both are truly empty
-    if (!userResponse) {
-      userResponse = "No response recorded";
-    }
+    // Get the user's response - prioritize currentTranscript as it's more up-to-date
+    let userResponse = currentTranscript.trim() || transcript.trim() || "No response recorded";
 
     // Save the transcript for this question
     setSavedTranscripts(prev => {
@@ -170,18 +164,19 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
       return updated;
     });
 
-    // For metrics, save immediately
+    // Create response data
     const responseData = {
-      prompt: questions[currentQuestion],
-      response: userResponse,
-      responseTime,
-      wordCount: userResponse.trim().split(/\s+/).filter(Boolean).length,
+      question: questions[currentQuestion],
+      original: userResponse,
+      corrected: "",
+      explanation: "",
+      grammarErrors: [],
       accuracy: 0,
       fluency: 0,
       confidence: 0,
-      grammarErrors: [],
       vocabularyScore: 0,
       pronunciationScore: Math.floor(Math.random() * 20) + 75,
+      speed: 0,
       detailedFeedback: ""
     };
 
@@ -197,7 +192,7 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
       setTimeLeft(timePerQuestion);
       setIsAnalyzing(false);
     } else {
-      // Session complete: do Gemini bulk analysis!
+      // Session complete: do Gemini bulk analysis
       await completeSessionWithDetailedAnalysis(
         [...responses.slice(0, totalQuestions - 1), responseData],
         [...savedTranscripts.slice(0, totalQuestions - 1), userResponse]
@@ -210,54 +205,45 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
     const totalTime = (Date.now() - sessionStartTime) / 1000;
 
     try {
-      // Batched prompt: instruct Gemini to deeply analyze all at once
+      // Batched prompt for Gemini analysis
       const bulkPrompt = `
-        For an English Reflex Challenge, you are given 5 questions AND the corresponding student responses for each. 
-        For each pair, provide a JSON array where each element has these fields:
-        {
-          "question": "",
-          "original": "",                   // student's answer verbatim
-          "corrected": "",                  // provide a corrected/natural version
-          "explanation": "",                // briefly explain any mistakes
-          "broken_rules": [],               // which grammar/vocab rules were broken
-          "accuracy": 0,                    // 0-100, quality of answer
-          "fluency": 0,
-          "pronunciation": 0,
-          "vocabulary": 0,
-          "precision": 0,
-          "speed": 0                        // 0-100 estimate of how quickly and fluently expressed
-        }
+        Analyze these 5 English responses for grammar, fluency, and accuracy.
+        Return a JSON array with detailed feedback for each response.
 
         Questions and Responses:
         ${questions.map((q, i) => `Q${i+1}: "${q}"\nA${i+1}: "${allTranscripts[i] || "No response"}"`).join('\n')}
+
+        For each response, provide:
+        {
+          "question": "the question",
+          "original": "student's answer verbatim",
+          "corrected": "improved version",
+          "explanation": "brief explanation of mistakes",
+          "broken_rules": ["grammar rules broken"],
+          "accuracy": 0-100,
+          "fluency": 0-100,
+          "pronunciation": 0-100,
+          "vocabulary": 0-100,
+          "precision": 0-100,
+          "speed": 0-100
+        }
       `;
 
-      // Use Gemini API
       const { feedback } = await getLanguageFeedback(bulkPrompt);
 
-      // Try to extract array from feedback
+      // Try to parse the JSON response
       const arrayMatch = feedback.match(/\[(.|\s|\n)*\]/m);
       let resultsArr = [];
+      
       if (arrayMatch) {
         try {
           resultsArr = JSON.parse(arrayMatch[0]);
         } catch {
-          // fallback: try to fix JSON with loose parsing or default reporting
           resultsArr = [];
         }
       }
 
-      // Fallback: try to parse as JSON directly
-      if (!resultsArr.length) {
-        try {
-          resultsArr = JSON.parse(feedback);
-        } catch {
-          // fallback: dummy default
-          resultsArr = [];
-        }
-      }
-
-      // If still failed, fallback to put empty analysis and user transcript per response
+      // Fallback if parsing fails
       if (!Array.isArray(resultsArr) || resultsArr.length === 0) {
         resultsArr = allResponses.map((resp, i) => ({
           question: questions[i],
@@ -274,10 +260,9 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
         }));
       }
 
-      // Update responses with metrics from Gemini and assemble summary metrics:
+      // Calculate metrics and create session data
       let sumPronunciation = 0, sumFluency = 0, sumVocabulary = 0;
       let sumPrecision = 0, sumAccuracy = 0, sumSpeed = 0;
-      let answerReport = [];
 
       const responsesWithAnalysis = resultsArr.map((gemini, i) => {
         sumPronunciation += gemini.pronunciation ?? 0;
@@ -286,12 +271,13 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
         sumPrecision += gemini.precision ?? 0;
         sumAccuracy += gemini.accuracy ?? 0;
         sumSpeed += gemini.speed ?? 0;
-        answerReport.push({
+
+        return {
           question: gemini.question,
-          response: gemini.original,
+          original: gemini.original,
           corrected: gemini.corrected,
           explanation: gemini.explanation,
-          grammarErrors: (gemini.broken_rules || []).map(rule => ({
+          grammarErrors: (gemini.broken_rules || []).map((rule: string) => ({
             error: rule,
             correction: gemini.corrected,
             explanation: gemini.explanation
@@ -303,11 +289,9 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
           pronunciationScore: gemini.pronunciation ?? 75,
           speed: gemini.speed ?? 60,
           detailedFeedback: gemini.explanation || ""
-        });
-        return answerReport[i];
+        };
       });
 
-      // Calculate overall metrics
       const n = resultsArr.length || 1;
       const sessionData: SessionData = {
         mode: challenge.id,
@@ -316,9 +300,9 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
         streak: responsesWithAnalysis.reduce((streak, r) => (r.accuracy >= 70 ? streak + 1 : streak), 0),
         score: Math.round(sumAccuracy / n),
         overallAnalysis: {
-          strengths: ["Prompt completion", "Participation", "Effort"],
-          weaknesses: ["See question explanations for mistakes"],
-          recommendations: ["Practice grammar rules highlighted in feedback", "Review corrected answers for improvement"],
+          strengths: ["Completed all challenges", "Active participation"],
+          weaknesses: ["See individual question feedback"],
+          recommendations: ["Practice identified grammar rules", "Review corrected answers"],
           overallGrade: getGradeFromScore(sumAccuracy / n)
         },
         metrics: {
@@ -335,31 +319,42 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
       onSessionComplete(sessionData);
 
     } catch (error) {
-      console.error("Error with batch Gemini feedback:", error);
-      // Fallback summary with what we have
-      const n = allResponses.length;
-
-      const sum = (key: string) => allResponses.reduce((tot, r) => tot + (r[key] || 60), 0);
+      console.error("Error with Gemini analysis:", error);
+      
+      // Fallback session data
       const sessionData: SessionData = {
         mode: challenge.id,
-        responses: allResponses,
-        totalTime,
-        streak: allResponses.reduce((streak, r) => (r.accuracy >= 70 ? streak + 1 : streak), 0),
-        score: Math.round(sum("accuracy") / n),
+        responses: allResponses.map((resp, i) => ({
+          question: questions[i],
+          original: allTranscripts[i] || "",
+          corrected: "",
+          explanation: "Analysis unavailable",
+          grammarErrors: [],
+          accuracy: 60,
+          fluency: 60,
+          confidence: 60,
+          vocabularyScore: 60,
+          pronunciationScore: 75,
+          speed: 60,
+          detailedFeedback: "Please try again for detailed feedback"
+        })),
+        totalTime: (Date.now() - sessionStartTime) / 1000,
+        streak: 3,
+        score: 60,
         overallAnalysis: {
-          strengths: ["Completed all challenges", "Consistent effort"],
-          weaknesses: ["Gemini feedback unavailable"],
-          recommendations: ["Try again later for detailed feedback"],
-          overallGrade: getGradeFromScore(sum("accuracy") / n)
+          strengths: ["Completed all challenges"],
+          weaknesses: ["Analysis unavailable"],
+          recommendations: ["Try again for detailed feedback"],
+          overallGrade: "C"
         },
         metrics: {
-          pronunciation: Math.round(sum("pronunciationScore") / n),
-          fluency: Math.round(sum("fluency") / n),
-          vocabulary: Math.round(sum("vocabularyScore") / n),
-          precision: Math.round(sum("confidence") / n),
-          accuracy: Math.round(sum("accuracy") / n),
-          speed: Math.round(sum("speed") / n),
-          totalTime: Math.round(totalTime)
+          pronunciation: 75,
+          fluency: 60,
+          vocabulary: 60,
+          precision: 60,
+          accuracy: 60,
+          speed: 60,
+          totalTime: Math.round((Date.now() - sessionStartTime) / 1000)
         }
       };
       onSessionComplete(sessionData);
@@ -369,7 +364,7 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
   const progress = ((currentQuestion + 1) / totalQuestions) * 100;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-accent/5 to-primary/10 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-blue-900 dark:to-indigo-900 p-4">
       <div className="max-w-4xl mx-auto">
         
         {/* Header */}
@@ -379,17 +374,17 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
             Back
           </Button>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold">{challenge.title}</h1>
-            <p className="text-gray-600">{challenge.skill}</p>
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{challenge.title}</h1>
+            <p className="text-gray-600 dark:text-gray-300">{challenge.skill}</p>
           </div>
         </div>
 
         {/* Progress */}
-        <Card className="mb-6">
+        <Card className="mb-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-lg">
           <CardHeader className="pb-3">
             <div className="flex justify-between items-center">
               <CardTitle className="text-lg">Progress</CardTitle>
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-gray-600 dark:text-gray-300">
                 Question {currentQuestion + 1} of {totalQuestions}
               </span>
             </div>
@@ -400,7 +395,7 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
         </Card>
 
         {/* Question Card */}
-        <Card className="mb-6">
+        <Card className="mb-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5" />
@@ -408,7 +403,7 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-lg mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div className="text-lg mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-600 rounded-lg border border-blue-200 dark:border-gray-600">
               {questions[currentQuestion]}
             </div>
             
@@ -418,9 +413,9 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
                 <Button
                   onClick={handleStartRecording}
                   size="lg"
-                  className="w-full max-w-md"
+                  className="w-full max-w-md bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold py-4 text-lg shadow-lg"
                 >
-                  <Play className="h-5 w-5 mr-2" />
+                  <Play className="h-6 w-6 mr-3" />
                   Start Recording
                 </Button>
               )}
@@ -428,15 +423,16 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
               {isRecording && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-center">
-                    <div className="animate-pulse bg-red-500 rounded-full p-4">
-                      <Mic className="h-8 w-8 text-white" />
+                    <div className="animate-pulse bg-red-500 rounded-full p-6 shadow-lg">
+                      <Mic className="h-10 w-10 text-white" />
                     </div>
                   </div>
-                  <p className="text-lg font-medium text-red-600">🔴 Recording... Speak now!</p>
+                  <p className="text-xl font-medium text-red-600 dark:text-red-400">🔴 Recording... Speak now!</p>
                   <Button
                     onClick={handleStopRecording}
                     variant="outline"
                     size="lg"
+                    className="border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
                   >
                     <Square className="h-5 w-5 mr-2" />
                     Stop Recording
@@ -446,17 +442,17 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
 
               {isAnalyzing && (
                 <div className="space-y-4">
-                  <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
-                  <p className="text-lg font-medium">Analyzing your response...</p>
+                  <div className="animate-spin h-10 w-10 border-4 border-blue-500 border-t-transparent rounded-full mx-auto"></div>
+                  <p className="text-lg font-medium text-blue-600 dark:text-blue-400">Analyzing your response...</p>
                 </div>
               )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Live Transcript Display - Always show when recording or when there's a transcript */}
+        {/* Live Transcript Display */}
         {(isRecording || currentTranscript || transcript) && (
-          <Card className="mb-6">
+          <Card className="mb-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-lg">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Mic className="h-5 w-5" />
@@ -464,15 +460,16 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 min-h-[100px]">
-                <p className="text-lg">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-lg p-6 min-h-[120px] border border-blue-200 dark:border-blue-700">
+                <p className="text-lg leading-relaxed">
                   {currentTranscript || transcript || "Start speaking to see your words appear here..."}
-                  {isRecording && <span className="animate-pulse">|</span>}
+                  {isRecording && <span className="animate-pulse text-blue-500">|</span>}
                 </p>
               </div>
               {(currentTranscript || transcript) && (
-                <div className="mt-2 text-sm text-gray-600">
-                  Word count: {(currentTranscript || transcript).split(/\s+/).filter(word => word.trim()).length}
+                <div className="mt-3 text-sm text-gray-600 dark:text-gray-400 flex justify-between">
+                  <span>Word count: {(currentTranscript || transcript).split(/\s+/).filter(word => word.trim()).length}</span>
+                  <span>Characters: {(currentTranscript || transcript).length}</span>
                 </div>
               )}
             </CardContent>
@@ -481,18 +478,20 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
 
         {/* Saved Responses Progress */}
         {savedTranscripts.length > 0 && (
-          <Card className="mb-6">
+          <Card className="mb-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-lg">
             <CardHeader>
               <CardTitle className="text-lg">Completed Responses</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {savedTranscripts.map((savedTranscript, index) => (
-                  <div key={index} className="flex items-center gap-2 text-sm">
-                    <span className="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-xs">
+                  <div key={index} className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <span className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center text-sm font-semibold">
                       ✓
                     </span>
-                    <span>Question {index + 1}: Response saved ({savedTranscript.split(/\s+/).filter(Boolean).length} words)</span>
+                    <span className="text-sm">
+                      <span className="font-semibold">Question {index + 1}:</span> Response saved ({savedTranscript.split(/\s+/).filter(Boolean).length} words)
+                    </span>
                   </div>
                 ))}
               </div>
@@ -501,28 +500,28 @@ export const ChallengeSession: React.FC<ChallengeSessionProps> = ({
         )}
 
         {/* Tips */}
-        <Card>
+        <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-lg">
           <CardHeader>
             <CardTitle className="text-lg">💡 Tips for {challenge.title}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-sm space-y-2">
+            <div className="text-sm space-y-2 text-gray-600 dark:text-gray-300">
               {challenge.id === "ai-debate" && (
-                <div>
+                <div className="space-y-1">
                   <p>• Present clear arguments with supporting reasons</p>
                   <p>• Use logical connectors (however, therefore, because)</p>
                   <p>• Acknowledge counterpoints before refuting them</p>
                 </div>
               )}
               {challenge.id === "precision-word" && (
-                <div>
+                <div className="space-y-1">
                   <p>• Use ALL the target words naturally in your response</p>
                   <p>• Don't force them - make them fit the context</p>
                   <p>• Show you understand their meanings</p>
                 </div>
               )}
               {challenge.id === "memory-loop" && (
-                <div>
+                <div className="space-y-1">
                   <p>• Listen carefully to every word</p>
                   <p>• Repeat with the same tone and pace</p>
                   <p>• Focus on exact word order</p>

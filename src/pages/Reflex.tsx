@@ -4,29 +4,29 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mic, Brain, Target, RotateCcw, Eye, Zap, Heart, BookOpen } from "lucide-react";
+import { Brain, Target, RotateCcw, Mic, Eye, Zap, Heart, BookOpen, Play, ArrowRight } from "lucide-react";
 import { ChallengeSession } from "@/components/reflex/ChallengeSession";
 import { DetailedAnalysis } from "@/components/reflex/DetailedAnalysis";
-import { sendMessageToGemini } from "@/lib/gemini-api";
-import { useToast } from "@/hooks/use-toast";
 
 // Export SessionData type for other components
 export interface SessionData {
   mode: string;
   responses: Array<{
-    prompt: string;
-    response: string;
-    responseTime: number;
-    accuracy: number;
-    fluency: number;
-    confidence: number;
+    question: string;
+    original: string;
+    corrected: string;
+    explanation: string;
     grammarErrors: Array<{
       error: string;
       correction: string;
       explanation: string;
     }>;
+    accuracy: number;
+    fluency: number;
+    confidence: number;
     vocabularyScore: number;
     pronunciationScore: number;
+    speed: number;
     detailedFeedback: string;
   }>;
   totalTime: number;
@@ -53,14 +53,12 @@ const ReflexChallenge = () => {
   const [selectedChallenge, setSelectedChallenge] = useState<string | null>(null);
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
-  const [isGettingNewChallenge, setIsGettingNewChallenge] = useState(false);
-  const { toast } = useToast();
 
   const challenges = [
     {
       id: "ai-debate",
       title: "AI Debate",
-      description: "Argue your point. Gemini gives counterpoints. You must respond logically.",
+      description: "Argue your point. Gemini counters. You respond.",
       icon: <Brain className="h-8 w-8" />,
       skill: "Spontaneous speaking, logic, persuasion",
       color: "from-blue-500 to-cyan-500",
@@ -69,7 +67,7 @@ const ReflexChallenge = () => {
     {
       id: "precision-word",
       title: "Precision Word",
-      description: "You must use 3–5 specific target words in your speech.",
+      description: "Use 3–5 target words naturally in your speech.",
       icon: <Target className="h-8 w-8" />,
       skill: "Vocabulary usage, clarity",
       color: "from-green-500 to-emerald-500",
@@ -78,7 +76,7 @@ const ReflexChallenge = () => {
     {
       id: "memory-loop",
       title: "Memory Loop",
-      description: "Listen to a sentence and repeat it exactly. Gemini checks accuracy.",
+      description: "Repeat a spoken sentence exactly as heard. Gemini checks accuracy.",
       icon: <RotateCcw className="h-8 w-8" />,
       skill: "Memory, focus",
       color: "from-purple-500 to-violet-500",
@@ -87,7 +85,7 @@ const ReflexChallenge = () => {
     {
       id: "shadow-mode",
       title: "Shadow Mode",
-      description: "Imitate a native speaker sentence in real-time. Pronunciation match is evaluated.",
+      description: "Imitate a native speaker in real-time. Pronunciation match is analyzed.",
       icon: <Mic className="h-8 w-8" />,
       skill: "Accent, pronunciation",
       color: "from-orange-500 to-red-500",
@@ -96,7 +94,7 @@ const ReflexChallenge = () => {
     {
       id: "visual-response",
       title: "Visual Response",
-      description: "Describe an image or video shown. Use rich vocabulary.",
+      description: "Describe an image or video. Use rich vocabulary and structure.",
       icon: <Eye className="h-8 w-8" />,
       skill: "Descriptive power, grammar",
       color: "from-pink-500 to-rose-500",
@@ -105,7 +103,7 @@ const ReflexChallenge = () => {
     {
       id: "quick-fire",
       title: "Quick Fire Questions",
-      description: "Answer rapid random questions (personal, opinion-based) under 5 sec each.",
+      description: "Answer random, timed questions in under 5 seconds.",
       icon: <Zap className="h-8 w-8" />,
       skill: "Thinking speed, fluency",
       color: "from-yellow-500 to-orange-500",
@@ -114,7 +112,7 @@ const ReflexChallenge = () => {
     {
       id: "emotion-switcher",
       title: "Emotion Switcher",
-      description: "Say the same sentence with 3 different emotions (e.g., happy, angry, sad).",
+      description: "Say one sentence in 3 different emotions: happy, angry, sad.",
       icon: <Heart className="h-8 w-8" />,
       skill: "Expressiveness, emotion control",
       color: "from-red-500 to-pink-500",
@@ -123,7 +121,7 @@ const ReflexChallenge = () => {
     {
       id: "story-stretch",
       title: "Story Stretch",
-      description: "Continue a story after hearing the first 2 sentences. Be creative!",
+      description: "Continue a short story creatively after hearing the first lines.",
       icon: <BookOpen className="h-8 w-8" />,
       skill: "Creativity, narrative flow",
       color: "from-indigo-500 to-purple-500",
@@ -133,10 +131,10 @@ const ReflexChallenge = () => {
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
-      case "Beginner": return "bg-green-100 text-green-800";
-      case "Intermediate": return "bg-yellow-100 text-yellow-800";
-      case "Advanced": return "bg-red-100 text-red-800";
-      default: return "bg-gray-100 text-gray-800";
+      case "Beginner": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
+      case "Intermediate": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
+      case "Advanced": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
+      default: return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300";
     }
   };
 
@@ -158,41 +156,6 @@ const ReflexChallenge = () => {
     setShowAnalysis(false);
   };
 
-  const getNewChallengeFromGemini = async () => {
-    setIsGettingNewChallenge(true);
-    try {
-      const prompt = `
-Generate a single creative English-speaking exercise for learners based on the theme "${sessionData?.mode || 'general'}". The exercise should be unique, non-repetitive, and challenging. Describe it clearly as shown in the original challenge style, including:
-- Title,
-- Description,
-- Skill focus,
-- Example (if applicable),
-- Difficulty.
-Respond as a JSON object: { "title": "...", "description": "...", "skill": "...", "color": "...", "difficulty": "...", "icon": "..." }
-Do not explain or answer, just give the object.
-`;
-      const response = await sendMessageToGemini(prompt, "reflex-challenge");
-      const challengeObj = JSON.parse(response.match(/\{.*\}/s)?.[0] || '{}');
-      if (!challengeObj.title) throw new Error();
-      // Set as the only active challenge
-      setSelectedChallenge("custom-ai");
-      // Store in challenges list - for this session only
-      challenges.unshift({
-        id: "custom-ai",
-        ...challengeObj,
-        icon: <Brain className="h-8 w-8" />, // default to Brain icon
-        color: challengeObj.color || "from-primary to-accent",
-      });
-      setShowAnalysis(false);
-    } catch {
-      toast({
-        title: "Could not get new challenge from Gemini.",
-        variant: "destructive"
-      });
-    }
-    setIsGettingNewChallenge(false);
-  };
-
   // If showing detailed analysis
   if (showAnalysis && sessionData) {
     return (
@@ -201,11 +164,6 @@ Do not explain or answer, just give the object.
           sessionData={sessionData} 
           onBackToHome={handleBackToHome}
         />
-        <div className="flex justify-center mt-8">
-          <Button onClick={getNewChallengeFromGemini} disabled={isGettingNewChallenge}>
-            {isGettingNewChallenge ? "Getting New Challenge..." : "Get a New Challenge"}
-          </Button>
-        </div>
       </AppLayout>
     );
   }
@@ -227,97 +185,158 @@ Do not explain or answer, just give the object.
   // Main challenge selection page
   return (
     <AppLayout>
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-accent/5 to-primary/10 p-4">
-        <div className="max-w-6xl mx-auto">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-blue-900 dark:to-indigo-900">
+        <div className="max-w-7xl mx-auto px-4 py-8">
           
-          {/* Header */}
-          <div className="text-center mb-12">
-            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-4">
+          {/* Hero Section */}
+          <div className="text-center mb-16">
+            <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-6">
               Reflex Challenge
             </h1>
-            <p className="text-xl text-gray-600 dark:text-gray-300 mb-6">
+            <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
               AI-Powered Speaking Practice for English Fluency
             </p>
-            <div className="flex items-center justify-center gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <Brain className="h-5 w-5 text-primary" />
-                <span>Powered by Gemini AI</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Mic className="h-5 w-5 text-accent" />
-                <span>Real-time Speech Analysis</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Features Overview */}
-          <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 mb-8">
-            <h3 className="text-lg font-bold text-center mb-4">How It Works</h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
-              <div className="text-center p-3">
-                <div className="w-12 h-12 mx-auto mb-2 bg-primary/20 rounded-full flex items-center justify-center">
-                  <span className="text-xl">🎯</span>
+            
+            {/* Features Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-5xl mx-auto mb-12">
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-6 shadow-lg">
+                <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center">
+                  <span className="text-2xl">🎯</span>
                 </div>
-                <h4 className="font-semibold mb-1">Choose Challenge</h4>
-                <p className="text-gray-600 dark:text-gray-300">Select from 8 speaking exercises</p>
+                <h3 className="font-bold text-lg mb-2">Choose Challenge</h3>
+                <p className="text-gray-600 dark:text-gray-300 text-sm">Select from 8 speaking exercises</p>
               </div>
-              <div className="text-center p-3">
-                <div className="w-12 h-12 mx-auto mb-2 bg-primary/20 rounded-full flex items-center justify-center">
-                  <span className="text-xl">🗣️</span>
+              
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-6 shadow-lg">
+                <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
+                  <span className="text-2xl">🗣️</span>
                 </div>
-                <h4 className="font-semibold mb-1">Speak Naturally</h4>
-                <p className="text-gray-600 dark:text-gray-300">Auto-recording with timer</p>
+                <h3 className="font-bold text-lg mb-2">Speak Naturally</h3>
+                <p className="text-gray-600 dark:text-gray-300 text-sm">Auto-recording with timer</p>
               </div>
-              <div className="text-center p-3">
-                <div className="w-12 h-12 mx-auto mb-2 bg-primary/20 rounded-full flex items-center justify-center">
-                  <span className="text-xl">🤖</span>
+              
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-6 shadow-lg">
+                <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-purple-500 to-violet-500 rounded-full flex items-center justify-center">
+                  <span className="text-2xl">🤖</span>
                 </div>
-                <h4 className="font-semibold mb-1">AI Analysis</h4>
-                <p className="text-gray-600 dark:text-gray-300">Detailed grammar & fluency feedback</p>
+                <h3 className="font-bold text-lg mb-2">AI Analysis</h3>
+                <p className="text-gray-600 dark:text-gray-300 text-sm">Detailed grammar & fluency feedback</p>
               </div>
-              <div className="text-center p-3">
-                <div className="w-12 h-12 mx-auto mb-2 bg-primary/20 rounded-full flex items-center justify-center">
-                  <span className="text-xl">📈</span>
+              
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-6 shadow-lg">
+                <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center">
+                  <span className="text-2xl">📈</span>
                 </div>
-                <h4 className="font-semibold mb-1">Detailed Report</h4>
-                <p className="text-gray-600 dark:text-gray-300">Complete analysis with recommendations</p>
+                <h3 className="font-bold text-lg mb-2">Detailed Report</h3>
+                <p className="text-gray-600 dark:text-gray-300 text-sm">Complete analysis with recommendations</p>
               </div>
             </div>
           </div>
 
           {/* Challenge Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {challenges.map((challenge) => (
-              <Card 
-                key={challenge.id}
-                className="group hover:shadow-xl transition-all duration-300 cursor-pointer border-2 hover:border-primary/50 overflow-hidden"
-                onClick={() => startChallenge(challenge.id)}
-              >
-                <CardHeader className="pb-3">
-                  <div className={`w-16 h-16 mx-auto mb-3 bg-gradient-to-br ${challenge.color} rounded-2xl flex items-center justify-center text-white transform group-hover:scale-110 transition-transform`}>
-                    {challenge.icon}
-                  </div>
-                  <CardTitle className="text-center text-lg">{challenge.title}</CardTitle>
-                  <div className="flex justify-center">
-                    <Badge className={getDifficultyColor(challenge.difficulty)}>
-                      {challenge.difficulty}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 text-center">
-                    {challenge.description}
-                  </p>
-                  <div className="text-xs text-center">
-                    <span className="font-semibold text-primary">Skills: </span>
-                    <span className="text-gray-600 dark:text-gray-300">{challenge.skill}</span>
-                  </div>
-                  <Button className="w-full mt-4 group-hover:bg-primary/90">
-                    Start Challenge
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="mb-16">
+            <h2 className="text-3xl font-bold text-center mb-8 text-gray-800 dark:text-white">
+              🚀 Challenge Types
+            </h2>
+            <p className="text-center text-gray-600 dark:text-gray-300 mb-12 max-w-2xl mx-auto">
+              Each challenge is crafted to sharpen specific speaking skills
+            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {challenges.map((challenge) => (
+                <Card 
+                  key={challenge.id}
+                  className="group hover:shadow-2xl transition-all duration-300 cursor-pointer border-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm hover:scale-105 overflow-hidden"
+                  onClick={() => startChallenge(challenge.id)}
+                >
+                  <CardHeader className="pb-4">
+                    <div className={`w-20 h-20 mx-auto mb-4 bg-gradient-to-br ${challenge.color} rounded-2xl flex items-center justify-center text-white transform group-hover:scale-110 transition-transform shadow-lg`}>
+                      {challenge.icon}
+                    </div>
+                    <CardTitle className="text-center text-xl font-bold">{challenge.title}</CardTitle>
+                    <div className="flex justify-center">
+                      <Badge className={getDifficultyColor(challenge.difficulty)}>
+                        {challenge.difficulty}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mb-4 text-center min-h-[40px]">
+                      {challenge.description}
+                    </p>
+                    <div className="text-xs text-center mb-4">
+                      <span className="font-semibold text-blue-600 dark:text-blue-400">Skills: </span>
+                      <span className="text-gray-600 dark:text-gray-300">{challenge.skill}</span>
+                    </div>
+                    <Button className={`w-full bg-gradient-to-r ${challenge.color} text-white font-semibold py-3 hover:opacity-90 transition-opacity group-hover:shadow-lg`}>
+                      <Play className="h-4 w-4 mr-2" />
+                      Start Challenge
+                      <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          {/* How It Works Section */}
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl">
+            <h2 className="text-3xl font-bold text-center mb-12 text-gray-800 dark:text-white">
+              How It Works
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              <div className="text-center">
+                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+                  1
+                </div>
+                <h3 className="text-xl font-bold mb-4">Choose a Challenge</h3>
+                <p className="text-gray-600 dark:text-gray-300">
+                  Pick from 8 unique speaking exercises, tailored to different skills and levels — from beginner to advanced.
+                </p>
+              </div>
+              
+              <div className="text-center">
+                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+                  2
+                </div>
+                <h3 className="text-xl font-bold mb-4">Speak Naturally</h3>
+                <div className="text-gray-600 dark:text-gray-300 space-y-2">
+                  <p>• Auto-recording begins when you start speaking</p>
+                  <p>• Live AI-powered transcription appears as you talk</p>
+                  <p>• Word count tracked in real time</p>
+                  <p>• Transcription saved automatically after each question</p>
+                </div>
+              </div>
+              
+              <div className="text-center">
+                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-purple-500 to-violet-500 rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+                  3
+                </div>
+                <h3 className="text-xl font-bold mb-4">🤖 AI Analysis</h3>
+                <div className="text-gray-600 dark:text-gray-300 space-y-2">
+                  <p className="font-semibold text-purple-600 dark:text-purple-400">(Powered by Gemini)</p>
+                  <p>• Corrected version of your answer</p>
+                  <p>• Explanation of mistakes</p>
+                  <p>• Grammar rules that were broken</p>
+                  <p>• Accuracy score for each question</p>
+                </div>
+              </div>
+              
+              <div className="text-center">
+                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+                  4
+                </div>
+                <h3 className="text-xl font-bold mb-4">📈 Detailed Report</h3>
+                <div className="text-gray-600 dark:text-gray-300 space-y-2">
+                  <p>• Pronunciation Accuracy (%)</p>
+                  <p>• Fluency Level & Vocabulary Strength</p>
+                  <p>• Precision of Word Use</p>
+                  <p>• Overall Accuracy & Response Speed</p>
+                  <p>• Total Time Taken</p>
+                </div>
+              </div>
+            </div>
           </div>
 
         </div>

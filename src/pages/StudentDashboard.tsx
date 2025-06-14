@@ -1,4 +1,3 @@
-
 import React from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -353,7 +352,7 @@ const StudentDashboard = () => {
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
           {/* Left Column */}
           <div className="lg:col-span-2 space-y-6">
             {/* Performance Overview */}
@@ -646,6 +645,18 @@ const StudentDashboard = () => {
                 ))}
               </CardContent>
             </Card>
+
+            {/* Quick Quiz card */}
+            <div
+              onClick={() => window.location.pathname = "/quick-quiz"}
+              className="cursor-pointer group bg-gradient-to-br from-purple-200 via-cyan-100 to-blue-100 dark:from-purple-900 dark:via-cyan-950 dark:to-blue-950 border borer-primary rounded-2xl shadow hover:shadow-lg transform transition hover:scale-105 flex flex-col items-center justify-center gap-4 p-6"
+            >
+              <div className="rounded-full w-14 h-14 flex items-center justify-center bg-primary/20">
+                <span className="text-2xl">🧠</span>
+              </div>
+              <div className="font-semibold text-primary text-lg">Quick Quiz</div>
+              <div className="text-xs text-gray-600 dark:text-gray-200 text-center">Take a rapid, AI-generated English skills quiz and get instant feedback.</div>
+            </div>
           </div>
         </div>
       </div>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/app-sidebar";
@@ -237,6 +236,7 @@ const VocabularyTrainer: React.FC = () => {
                     word={currentWord} 
                     onCorrect={markWordAsLearned}
                     onNext={getRandomWord}
+                    showExample={false}
                   />
                 )}
 

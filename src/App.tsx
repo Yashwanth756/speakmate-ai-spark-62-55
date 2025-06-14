@@ -25,6 +25,7 @@ import TeacherLogin from "./pages/TeacherLogin";
 import TeacherRegister from "./pages/TeacherRegister";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import StudentDashboard from "./pages/StudentDashboard";
+import QuickQuiz from "./pages/QuickQuiz";
 
 const queryClient = new QueryClient();
 
@@ -136,6 +137,11 @@ const App = () => (
               <Route path="/mirror-practice" element={
                 <ProtectedRoute>
                   <MirrorPractice />
+                </ProtectedRoute>
+              } />
+              <Route path="/quick-quiz" element={
+                <ProtectedRoute>
+                  <QuickQuiz />
                 </ProtectedRoute>
               } />
               <Route path="*" element={<NotFound />} />

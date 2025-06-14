@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Mic, Brain, Target, RotateCcw, Eye, Zap, Heart, BookOpen } from "lucide-react";
 import { ChallengeSession } from "@/components/reflex/ChallengeSession";
 import { DetailedAnalysis } from "@/components/reflex/DetailedAnalysis";
+import { sendMessageToGemini } from "@/lib/gemini-api";
 
 // Export SessionData type for other components
 export interface SessionData {
@@ -42,6 +42,7 @@ const ReflexChallenge = () => {
   const [selectedChallenge, setSelectedChallenge] = useState<string | null>(null);
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [isGettingNewChallenge, setIsGettingNewChallenge] = useState(false);
 
   const challenges = [
     {
@@ -145,6 +146,38 @@ const ReflexChallenge = () => {
     setShowAnalysis(false);
   };
 
+  const getNewChallengeFromGemini = async () => {
+    setIsGettingNewChallenge(true);
+    try {
+      const prompt = `
+Generate a single creative English-speaking exercise for learners based on the theme "${sessionData?.mode || 'general'}". The exercise should be unique, non-repetitive, and challenging. Describe it clearly as shown in the original challenge style, including:
+- Title,
+- Description,
+- Skill focus,
+- Example (if applicable),
+- Difficulty.
+Respond as a JSON object: { "title": "...", "description": "...", "skill": "...", "color": "...", "difficulty": "...", "icon": "..." }
+Do not explain or answer, just give the object.
+`;
+      const response = await sendMessageToGemini(prompt, "reflex-challenge");
+      const challengeObj = JSON.parse(response.match(/\{.*\}/s)?.[0] || '{}');
+      if (!challengeObj.title) throw new Error();
+      // Set as the only active challenge
+      setSelectedChallenge("custom-ai");
+      // Store in challenges list - for this session only
+      challenges.unshift({
+        id: "custom-ai",
+        ...challengeObj,
+        icon: <Brain className="h-8 w-8" />, // default to Brain icon
+        color: challengeObj.color || "from-primary to-accent",
+      });
+      setShowAnalysis(false);
+    } catch {
+      toast.error("Could not get new challenge from Gemini.");
+    }
+    setIsGettingNewChallenge(false);
+  };
+
   // If showing detailed analysis
   if (showAnalysis && sessionData) {
     return (
@@ -153,6 +186,11 @@ const ReflexChallenge = () => {
           sessionData={sessionData} 
           onBackToHome={handleBackToHome}
         />
+        <div className="flex justify-center mt-8">
+          <Button onClick={getNewChallengeFromGemini} disabled={isGettingNewChallenge}>
+            {isGettingNewChallenge ? "Getting New Challenge..." : "Get a New Challenge"}
+          </Button>
+        </div>
       </AppLayout>
     );
   }

@@ -92,11 +92,11 @@ const ConversationDisplay = ({
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="h-6 w-6 absolute top-1 right-1 rounded-full hover:bg-gray-200"
+                      className="h-8 w-8 absolute top-1 right-1 rounded-full bg-accent text-accent-foreground shadow-glow-accent hover:scale-105 transition-transform hover:bg-accent/90 active:scale-100 focus:ring-2 focus:ring-accent"
                       onClick={() => entry.text && onSpeakMessage(entry.text)}
                       title="Listen to this message"
                     >
-                      <Volume className="h-3 w-3" />
+                      <Volume className="h-5 w-5" />
                     </Button>
                   )}
                 </div>

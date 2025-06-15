@@ -312,6 +312,42 @@ const StudentDashboard = () => {
           )}
         </div>
 
+        {/* Quick Actions (including the new Quick Quiz button) */}
+        <div className="flex flex-wrap gap-4 mt-2">
+          <Button 
+            onClick={() => handleStartActivity('speaking')} 
+            variant="outline"
+            className="justify-start"
+          >
+            <Zap className="h-4 w-4 mr-2" />
+            Speaking Practice
+          </Button>
+          <Button 
+            onClick={() => handleStartActivity('vocabulary')} 
+            variant="outline" 
+            className="justify-start"
+          >
+            <BookOpen className="h-4 w-4 mr-2" />
+            Vocabulary Trainer
+          </Button>
+          <Button 
+            onClick={() => handleStartActivity('grammar')} 
+            variant="outline"
+            className="justify-start"
+          >
+            <Target className="h-4 w-4 mr-2" />
+            Grammar Clinic
+          </Button>
+          <Button 
+            onClick={() => navigate('/quick-quiz')}
+            variant="outline"
+            className="justify-start"
+          >
+            <Trophy className="h-4 w-4 mr-2" />
+            Quick Quiz
+          </Button>
+        </div>
+
         {/* Streak & Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="border-2 border-orange-200 bg-orange-50/50">
@@ -617,7 +653,7 @@ const StudentDashboard = () => {
                 </Button>
                 <Button 
                   onClick={() => handleStartActivity('grammar')} 
-                  variant="outline" 
+                  variant="outline"
                   className="w-full justify-start"
                 >
                   <Target className="h-4 w-4 mr-2" />

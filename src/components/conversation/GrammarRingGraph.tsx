@@ -73,9 +73,6 @@ const GrammarRingGraph: React.FC<GrammarRingGraphProps> = ({
                   tick={false}
                 />
                 <RadialBar
-                  minAngle={15}
-                  animationBegin={0}
-                  animationDuration={900}
                   background
                   clockWise
                   dataKey="value"
@@ -109,12 +106,10 @@ const GrammarRingGraph: React.FC<GrammarRingGraphProps> = ({
                   >
                     <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
                     <RadialBar
-                      minAngle={15}
                       background
                       clockWise
                       dataKey="value"
                       cornerRadius={10}
-                      animationDuration={800}
                     />
                   </RadialBarChart>
                 </ResponsiveContainer>
@@ -135,12 +130,10 @@ const GrammarRingGraph: React.FC<GrammarRingGraphProps> = ({
                   >
                     <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
                     <RadialBar
-                      minAngle={15}
                       background
                       clockWise
                       dataKey="value"
                       cornerRadius={10}
-                      animationDuration={800}
                     />
                   </RadialBarChart>
                 </ResponsiveContainer>
@@ -161,12 +154,10 @@ const GrammarRingGraph: React.FC<GrammarRingGraphProps> = ({
                   >
                     <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
                     <RadialBar
-                      minAngle={15}
                       background
                       clockWise
                       dataKey="value"
                       cornerRadius={10}
-                      animationDuration={800}
                     />
                   </RadialBarChart>
                 </ResponsiveContainer>

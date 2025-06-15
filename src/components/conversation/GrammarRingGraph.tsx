@@ -1,6 +1,8 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { LanguageAnalysis } from '@/lib/language-analyzer';
 
 interface GrammarRingGraphProps {
   fluencyScore: number;
@@ -8,12 +10,14 @@ interface GrammarRingGraphProps {
   grammarScore: number;
   userSentence?: string;
   correctedSentence?: string;
+  languageAnalysis?: LanguageAnalysis | null;
 }
 
 const GrammarRingGraph: React.FC<GrammarRingGraphProps> = ({
   fluencyScore,
   vocabularyScore,
-  grammarScore
+  grammarScore,
+  languageAnalysis
 }) => {
   // Round scores to whole numbers
   const roundedFluency = Math.round(fluencyScore);
@@ -44,7 +48,7 @@ const GrammarRingGraph: React.FC<GrammarRingGraphProps> = ({
         <CardTitle className="text-lg">Performance Overview</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
           <div className="relative flex flex-col items-center">
             <svg width="160" height="160" viewBox="0 0 160 160">
               {/* Background circle */}
@@ -101,6 +105,58 @@ const GrammarRingGraph: React.FC<GrammarRingGraphProps> = ({
             </div>
           </div>
         </div>
+        
+        {/* Enhanced analysis display */}
+        {languageAnalysis && (
+          <div className="mt-6 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+              <div className="bg-muted/50 p-3 rounded-lg">
+                <span className="font-medium text-muted-foreground">Word Count</span>
+                <div className="text-lg font-bold">{languageAnalysis.detailedAnalysis.wordCount}</div>
+              </div>
+              <div className="bg-muted/50 p-3 rounded-lg">
+                <span className="font-medium text-muted-foreground">Vocabulary Level</span>
+                <div className="text-lg font-bold">{languageAnalysis.detailedAnalysis.vocabularyLevel}</div>
+              </div>
+              <div className="bg-muted/50 p-3 rounded-lg">
+                <span className="font-medium text-muted-foreground">Complexity</span>
+                <div className="text-lg font-bold">{Math.round(languageAnalysis.detailedAnalysis.sentenceComplexity)}%</div>
+              </div>
+              <div className="bg-muted/50 p-3 rounded-lg">
+                <span className="font-medium text-muted-foreground">Analysis Speed</span>
+                <div className="text-lg font-bold text-green-600">Instant</div>
+              </div>
+            </div>
+            
+            {/* Fluency markers */}
+            {languageAnalysis.detailedAnalysis.fluencyMarkers.length > 0 && (
+              <div>
+                <h4 className="font-medium text-sm text-muted-foreground mb-2">Strengths:</h4>
+                <div className="flex flex-wrap gap-2">
+                  {languageAnalysis.detailedAnalysis.fluencyMarkers.map((marker, index) => (
+                    <Badge key={index} variant="secondary" className="text-xs">
+                      {marker}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Grammar suggestions */}
+            {languageAnalysis.detailedAnalysis.grammarErrors.length > 0 && (
+              <div>
+                <h4 className="font-medium text-sm text-muted-foreground mb-2">Areas to improve:</h4>
+                <div className="flex flex-wrap gap-2">
+                  {languageAnalysis.detailedAnalysis.grammarErrors.slice(0, 3).map((error, index) => (
+                    <Badge key={index} variant="outline" className="text-xs text-amber-600">
+                      {error}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -1,6 +1,8 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useConversationState, ConversationEntry } from '@/hooks/use-conversation-state';
 import { useSpeechAudio } from '@/hooks/use-speech-audio';
+import { generateComprehensiveAnalysis, LanguageAnalysis } from '@/lib/language-analyzer';
 
 interface ConversationContextType {
   activeTopic: string;
@@ -16,6 +18,7 @@ interface ConversationContextType {
   hasApiError: boolean;
   lastUserSentence: string;
   correctedSentence: string;
+  languageAnalysis: LanguageAnalysis | null;
   handleTopicChange: (value: string) => Promise<string | null>;
   handleStartRecording: () => void;
   handleStopRecording: () => void;
@@ -40,7 +43,8 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     initializeConversation,
     handleTopicChange,
     processUserResponse,
-    clearConversationHistory
+    clearConversationHistory,
+    updateScoresFromAnalysis
   } = useConversationState();
 
   const {
@@ -54,25 +58,32 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     resetTranscript
   } = useSpeechAudio();
   
-  // New state for storing original and corrected sentences
+  // Enhanced state for language analysis
   const [lastUserSentence, setLastUserSentence] = useState('');
   const [correctedSentence, setCorrectedSentence] = useState('');
+  const [languageAnalysis, setLanguageAnalysis] = useState<LanguageAnalysis | null>(null);
   
   // Initialize conversation
   useEffect(() => {
     initializeConversation();
   }, []);
   
-  // Define the actual stop recording handler that processes the user response
+  // Enhanced stop recording handler with fast local analysis
   const handleStopRecording = async () => {
     stopRecording();
     
     if (transcript) {
       setLastUserSentence(transcript);
       
-      // Here we would ideally have actual correction logic
-      // For now, we'll just create a simple simulated correction
-      const simpleCorrection = simulateGrammarCorrection(transcript);
+      // Perform fast local analysis first
+      const analysis = generateComprehensiveAnalysis(transcript);
+      setLanguageAnalysis(analysis);
+      
+      // Update scores immediately from local analysis
+      updateScoresFromAnalysis(analysis);
+      
+      // Create a simple correction (this could be enhanced with AI)
+      const simpleCorrection = simulateGrammarCorrection(transcript, analysis);
       setCorrectedSentence(simpleCorrection);
       
       const response = await processUserResponse(transcript);
@@ -81,39 +92,25 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       if (response?.nextQuestion) {
         speakText(response.nextQuestion);
       }
-      // <<< Reset transcript after processing >>>
       resetTranscript();
     }
   };
   
-  // Simple function to simulate grammar correction
-  // In a real implementation, this would come from an API or more sophisticated logic
-  const simulateGrammarCorrection = (text: string): string => {
-    // This is a very simplified simulation
-    // A real implementation would use proper NLP tools
-    const commonErrors = [
-      { error: /i am/i, correction: "I am" },
-      { error: /dont/i, correction: "don't" },
-      { error: /cant/i, correction: "can't" },
-      { error: /im /i, correction: "I'm " },
-      { error: /\bi\b/i, correction: "I" },
-      { error: /\bhe dont\b/i, correction: "he doesn't" },
-      { error: /\bshe dont\b/i, correction: "she doesn't" },
-      { error: /\bit dont\b/i, correction: "it doesn't" },
-      { error: /\bthey was\b/i, correction: "they were" },
-      { error: /\bwe was\b/i, correction: "we were" },
-    ];
-    
+  // Enhanced grammar correction using analysis results
+  const simulateGrammarCorrection = (text: string, analysis: LanguageAnalysis): string => {
     let corrected = text.trim();
     
-    // First letter capitalization
-    if (corrected.length > 0) {
-      corrected = corrected.charAt(0).toUpperCase() + corrected.slice(1);
-    }
-    
-    // Apply corrections
-    commonErrors.forEach(({ error, correction }) => {
-      corrected = corrected.replace(error, correction);
+    // Apply corrections based on detected errors
+    analysis.detailedAnalysis.grammarErrors.forEach(error => {
+      if (error.includes("capital letter") && corrected.length > 0) {
+        corrected = corrected.charAt(0).toUpperCase() + corrected.slice(1);
+      }
+      if (error.includes("'I' should be capitalized")) {
+        corrected = corrected.replace(/\bi\b/g, 'I');
+      }
+      if (error.includes("Multiple spaces")) {
+        corrected = corrected.replace(/\s+/g, ' ');
+      }
     });
     
     // Add period if missing at the end
@@ -135,24 +132,26 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Clear conversation and reinitialize
   const clearConversation = () => {
-    // Stop any ongoing speech
     stopSpeaking();
-    // Clear conversation history
     clearConversationHistory();
-    // Clear the sentence corrections
     setLastUserSentence('');
     setCorrectedSentence('');
-    // <<< Reset transcript here too >>>
+    setLanguageAnalysis(null);
     resetTranscript();
-    // Reinitialize conversation
     initializeConversation();
   };
   
-  // Handle text submission
+  // Enhanced text submission with local analysis
   const handleTextSubmit = async (text: string) => {
     setLastUserSentence(text);
+    
+    // Perform comprehensive analysis
+    const analysis = generateComprehensiveAnalysis(text);
+    setLanguageAnalysis(analysis);
+    updateScoresFromAnalysis(analysis);
+    
     // Simulate correction
-    const simpleCorrection = simulateGrammarCorrection(text);
+    const simpleCorrection = simulateGrammarCorrection(text, analysis);
     setCorrectedSentence(simpleCorrection);
     
     const response = await processUserResponse(text);
@@ -161,11 +160,10 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     if (response?.nextQuestion) {
       speakText(response.nextQuestion);
     }
-    // <<< Reset transcript after manual text submission, just in case >>>
     resetTranscript();
   };
 
-  // Patch startRecording to always reset transcript first!
+  // Patch startRecording to always reset transcript first
   const patchedStartRecording = () => {
     resetTranscript();
     handleStartRecording();
@@ -185,8 +183,9 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     hasApiError,
     lastUserSentence,
     correctedSentence,
+    languageAnalysis,
     handleTopicChange: handleTopicChangeWithAudio,
-    handleStartRecording: patchedStartRecording, // << use patched
+    handleStartRecording: patchedStartRecording,
     handleStopRecording,
     speakText,
     stopSpeaking,

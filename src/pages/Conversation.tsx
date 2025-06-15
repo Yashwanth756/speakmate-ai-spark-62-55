@@ -21,6 +21,7 @@ const ConversationContent = () => {
     hasApiError,
     lastUserSentence,
     correctedSentence,
+    languageAnalysis,
     handleTopicChange,
     handleStartRecording,
     handleStopRecording,
@@ -52,6 +53,7 @@ const ConversationContent = () => {
       onTextSubmit={handleTextSubmit}
       lastUserSentence={lastUserSentence}
       correctedSentence={correctedSentence}
+      languageAnalysis={languageAnalysis}
     />
   );
 };

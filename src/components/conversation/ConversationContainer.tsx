@@ -6,6 +6,7 @@ import GrammarRingGraph from './GrammarRingGraph';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Settings, Trash2 } from 'lucide-react';
+import { LanguageAnalysis } from '@/lib/language-analyzer';
 
 interface ConversationContainerProps {
   activeTopic: string;
@@ -28,6 +29,7 @@ interface ConversationContainerProps {
   onTextSubmit?: (text: string) => void;
   lastUserSentence?: string;
   correctedSentence?: string;
+  languageAnalysis?: LanguageAnalysis | null;
 }
 
 const ConversationContainer = ({
@@ -50,7 +52,8 @@ const ConversationContainer = ({
   onClearConversation,
   onTextSubmit,
   lastUserSentence,
-  correctedSentence
+  correctedSentence,
+  languageAnalysis
 }: ConversationContainerProps) => {
   return (
     <div className="flex-1 p-6">
@@ -119,6 +122,7 @@ const ConversationContainer = ({
               grammarScore={grammarScore}
               userSentence={lastUserSentence}
               correctedSentence={correctedSentence}
+              languageAnalysis={languageAnalysis}
             />
           )}
         </div>

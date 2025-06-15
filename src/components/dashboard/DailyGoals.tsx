@@ -1,10 +1,12 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Award } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useStudentProgress } from "@/data/hooks/useStudentProgress";
 
-interface Goal {
+export interface Goal {
   id: string;
   name: string;
   completed: boolean;
@@ -12,39 +14,31 @@ interface Goal {
   current: number;
 }
 
-interface DailyGoalsProps {
-  goals?: Goal[];
-}
+export const DailyGoals: React.FC = () => {
+  const { user } = useAuth();
+  const studentId = user?.email || user?.id; // using email/id as unique key
 
-// Mock data to demonstrate the component
-const defaultGoals: Goal[] = [
-  { id: "1", name: "Practice speaking", completed: false, target: 20, current: 12 },
-  { id: "2", name: "Learn vocabulary", completed: true, target: 15, current: 15 },
-  { id: "3", name: "Grammar exercises", completed: false, target: 10, current: 4 },
-];
+  const { data, isLoading } = useStudentProgress(studentId);
 
-export const DailyGoals: React.FC<DailyGoalsProps> = ({ goals = defaultGoals }) => {
-  const [localGoals, setLocalGoals] = useState<Goal[]>(goals);
-  
-  // Effect to load goals from localStorage on component mount
-  useEffect(() => {
-    const savedGoals = localStorage.getItem('dailyGoals');
-    if (savedGoals) {
-      setLocalGoals(JSON.parse(savedGoals));
-    } else {
-      setLocalGoals(goals);
-    }
+  // Derive goals: each assignment becomes a goal for demo purposes.
+  const goals: Goal[] = useMemo(() => {
+    if (!data) return [];
+    return data.assignments.map((a: any) => {
+      const prog = data.progress.find((p: any) => p.assignmentId === a.id);
+      return {
+        id: a.id,
+        name: a.title,
+        completed: prog?.status === "completed",
+        target: 1,
+        current: prog?.status === "completed" ? 1 : 0
+      };
+    });
+  }, [data]);
+
+  const overallProgress = useMemo(() => {
+    if (!goals.length) return 0;
+    return Math.round((goals.reduce((acc, g) => acc + g.current, 0) / goals.reduce((acc, g) => acc + g.target, 0)) * 100);
   }, [goals]);
-
-  // Effect to save goals to localStorage when they change
-  useEffect(() => {
-    localStorage.setItem('dailyGoals', JSON.stringify(localGoals));
-  }, [localGoals]);
-
-  const overallProgress = Math.round(
-    (localGoals.reduce((acc, goal) => acc + goal.current, 0) / 
-     localGoals.reduce((acc, goal) => acc + goal.target, 0)) * 100
-  );
 
   return (
     <Card>
@@ -56,33 +50,37 @@ export const DailyGoals: React.FC<DailyGoalsProps> = ({ goals = defaultGoals }) 
           </div>
         </CardTitle>
         <div className="text-sm font-medium text-primary">
-          {overallProgress}% completed
+          {isLoading ? '--' : `${overallProgress}% completed`}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <Progress value={overallProgress} />
-
         <div className="space-y-3">
-          {localGoals.map((goal) => (
-            <div key={goal.id} className="space-y-1">
-              <div className="flex justify-between items-center">
-                <div className="text-sm flex items-center">
-                  <span className={`mr-2 ${goal.completed ? 'text-primary' : 'text-gray-600'}`}>
-                    {goal.name}
-                  </span>
-                  {goal.completed && (
-                    <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
-                      Completed
+          {(isLoading ? Array(3).fill(undefined) : goals).map((goal, i) =>
+            goal ? (
+              <div key={goal.id} className="space-y-1">
+                <div className="flex justify-between items-center">
+                  <div className="text-sm flex items-center">
+                    <span className={`mr-2 ${goal.completed ? 'text-primary' : 'text-gray-600'}`}>
+                      {goal.name}
                     </span>
-                  )}
+                    {goal.completed && (
+                      <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
+                        Completed
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-gray-500">
+                    {goal.current}/{goal.target}
+                  </span>
                 </div>
-                <span className="text-xs text-gray-500">
-                  {goal.current}/{goal.target}
-                </span>
+                <Progress value={(goal.current / goal.target) * 100} className="h-1" />
               </div>
-              <Progress value={(goal.current / goal.target) * 100} className="h-1" />
-            </div>
-          ))}
+            ) : (
+              // Skeleton loading state
+              <div key={i} className="h-8 bg-gray-100 animate-pulse rounded" />
+            )
+          )}
         </div>
       </CardContent>
     </Card>

@@ -24,6 +24,7 @@ const getGenAIInstance = (): GoogleGenerativeAI | null => {
 
 // Store chat instance for conversation continuity
 let chatInstance;
+let currentTopic = ''; // Track topic to force reset if topic changes
 
 // Model configuration with updated models that have better compatibility
 const MODELS = {
@@ -34,9 +35,8 @@ const MODELS = {
 // Reset the chat history for a new conversation
 export const resetChatHistory = (topic: string): void => {
   chatInstance = null;
-  
-  // The system prompt will be sent as the first message after initializing the chat
-  console.log(`Chat reset with topic: ${topic}`);
+  currentTopic = topic;
+  console.log(`[Gemini API] Chat reset with topic: ${topic}`);
 };
 
 // Send message to Gemini and get response
@@ -51,12 +51,16 @@ export const sendMessageToGemini = async (userMessage: string, topic: string): P
     // Try with primary model first
     let currentModel = MODELS.PRIMARY;
     let model = genAI.getGenerativeModel({ model: currentModel });
-    
+
+    // Forcefully reset chat if topic changes
+    if (topic !== currentTopic) {
+      resetChatHistory(topic);
+    }
+
     // Initialize chat if it doesn't exist
     if (!chatInstance) {
-      console.log(`Initializing new chat with model: ${currentModel}`);
-      
-      // Create an updated system prompt with STRICT instructions for single response
+      console.log(`[Gemini API] Initializing new chat instance for topic: ${topic} and model: ${currentModel}`);
+      // Create an updated system prompt ...
       const systemPrompt = `You are Iyraa, a warm, friendly, and intelligent English tutor AI designed to help users improve their English naturally and confidently.
 
       The current conversation topic is: ${topic}.
@@ -72,29 +76,29 @@ export const sendMessageToGemini = async (userMessage: string, topic: string): P
       Begin the conversation by introducing yourself: "Hi, I'm Iyraa, your friendly English tutor. I'm here to help you practice conversational English in a natural, supportive way!"`;
       
       try {
-        // Start a new chat with empty history first
+        // Always start a new chat and fresh prompt
         chatInstance = model.startChat({ history: [] });
-        
-        // Send the system prompt as the first message
+        // Send the system prompt as the very first message
         const systemResult = await chatInstance.sendMessage(
           `System instruction (please follow these guidelines): ${systemPrompt}`
         );
         await systemResult.response;
-        console.log("System prompt sent successfully");
+        console.log("[Gemini API] System prompt sent after reset/init.");
       } catch (error) {
-        console.error("Error initializing chat:", error);
+        console.error("[Gemini API] Error initializing chat:", error);
         throw error;
       }
+      // Always update the current topic tracking
+      currentTopic = topic;
     }
     
     try {
-      // Send the message using the chat instance
-      console.log(`Sending message to ${currentModel}: "${userMessage}"`);
+      // Always log before sending
+      console.log(`[Gemini API] Sending user message to ${currentModel}: "${userMessage}"`);
       const result = await chatInstance.sendMessage(userMessage);
       const response = await result.response;
       const responseText = response.text();
-      console.log(`Got response: "${responseText.substring(0, 50)}..."`);
-      
+      console.log(`[Gemini API] Got response: "${responseText.substring(0, 50)}..."`);
       return responseText;
     } catch (error: any) {
       console.error(`Error with model ${currentModel}:`, error);

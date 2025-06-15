@@ -1,3 +1,4 @@
+
 import {
   Sidebar,
   SidebarContent,
@@ -19,7 +20,8 @@ import {
   Zap,
   Settings,
   Play,
-  ArrowLeft
+  ArrowLeft,
+  Trophy // Import Trophy icon for Quick Quiz
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -34,6 +36,9 @@ const navItems = [
   { title: "Story Builder", route: "/story", icon: Book },
   { title: "Vocabulary Trainer", route: "/vocabulary", icon: Book },
   { title: "Grammar Clinic", route: "/grammar", icon: Book },
+  // Insert Quick Quiz here (below Grammar Clinic)
+  { title: "Quick Quiz", route: "/quick-quiz", icon: Trophy },
+  // Progress Report now follows
   { title: "Progress Report", route: "/progress", icon: BarChart },
   { title: "Settings", route: "/settings", icon: Settings }
 ];

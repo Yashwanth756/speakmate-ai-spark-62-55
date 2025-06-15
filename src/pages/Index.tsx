@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -134,17 +133,8 @@ const Index = () => {
       <div className="container mx-auto px-4 py-6 max-w-7xl">
         <div className={`space-y-6 ${showAnimation ? 'animate-fade-in' : 'opacity-0'}`}>
           <WelcomeCard />
-          {/* Quick Quiz Button */}
-          <div className="flex justify-end mb-2">
-            <Button
-              onClick={() => navigate('/quick-quiz')}
-              variant="default"
-              className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-primary shadow-lg hover:scale-105 transition-all text-white px-6 py-4 rounded-2xl font-semibold text-lg"
-            >
-              <Trophy className="h-5 w-5 mr-2" />
-              Quick Quiz
-            </Button>
-          </div>
+          {/* Quick Quiz Button REMOVED here because it is now in the sidebar */}
+
           <QuickStartPanel />
 
           {/* Progress Summary Section */}
@@ -183,4 +173,3 @@ const Index = () => {
 };
 
 export default Index;
-

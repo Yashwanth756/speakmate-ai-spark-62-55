@@ -256,6 +256,7 @@ const VocabularyTrainer: React.FC = () => {
                         style={{ width: `${(dailyProgress / 5) * 100}%` }}
                       ></div>
                     </div>
+                    <span className="ml-2 text-sm">{dailyProgress}/5 words</span>
                   </div>
                   <LevelSelector 
                     currentLevel={currentLevel} 

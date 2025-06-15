@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +35,11 @@ export const WordCard: React.FC<WordProps> = ({
       utterance.rate = 0.8;
       window.speechSynthesis.speak(utterance);
     }
+  };
+
+  // Handler to toggle memory tip/fun fact
+  const handleKnowMore = () => {
+    setShowMemoryTip((v) => !v);
   };
 
   return (
@@ -95,11 +99,12 @@ export const WordCard: React.FC<WordProps> = ({
             ))}
           </div>
         </div>
-        
+
+        {/* Show memory tip/fun fact only when toggled */}
         {showMemoryTip && (
           <div className="mb-4 animate-fade-in bg-badge/40 p-3 rounded-md">
-            <label className="text-sm font-medium text-primary">Memory Tip</label>
-            <p className="text-gray-800">{word.memoryTip}</p>
+            <label className="text-sm font-medium text-primary">Did you know?</label>
+            <p className="text-gray-800">{word.memoryTip || "No extra fact for this word."}</p>
           </div>
         )}
         
@@ -115,23 +120,18 @@ export const WordCard: React.FC<WordProps> = ({
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => setShowMemoryTip(!showMemoryTip)}
+            onClick={handleKnowMore}
             className="text-xs"
           >
-            {showMemoryTip ? 'Hide Memory Tip' : 'Show Memory Tip'}
+            {showMemoryTip ? 'Hide Fact' : 'Know More'}
           </Button>
         </div>
       </CardContent>
       
       <CardFooter className="flex justify-between bg-gray-50 border-t">
-        <Button
-          onClick={onPractice}
-          variant="default"
-          className={`flex-1 mr-2 ${isListening ? 'bg-red-500 hover:bg-red-600' : ''}`}
-        >
-          <Mic className="mr-2 h-4 w-4" />
-          {isListening ? 'Listening...' : 'Practice Pronunciation'}
-        </Button>
+        {/* REMOVE: Old mic/practice button */}
+        {/* REPLACE with Know More/fact button, already present in body */}
+        <div className="flex-1 flex justify-end" />
       </CardFooter>
     </Card>
   );

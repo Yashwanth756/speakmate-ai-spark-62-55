@@ -220,32 +220,12 @@ const VocabularyTrainer: React.FC = () => {
 
                 {/* Only two modes: WordCard and SpellCheck */}
                 {!isSpellMode && (
-                  <>
-                    <WordCard 
-                      word={currentWord}
-                      onNextWord={getRandomWord}
-                      onPractice={handlePracticeClick}
-                      isListening={isListening}
-                    />
-                    {/* Show Stop button when listening */}
-                    {isListening && (
-                      <div className="flex justify-center mb-4">
-                        <Button
-                          variant="destructive"
-                          onClick={() => {
-                            stopListening();
-                            toast({
-                              title: "Stopped Recording",
-                              description: "Speech recognition stopped.",
-                            });
-                          }}
-                          className="w-full max-w-xs mt-2"
-                        >
-                          Stop
-                        </Button>
-                      </div>
-                    )}
-                  </>
+                  <WordCard 
+                    word={currentWord}
+                    onNextWord={getRandomWord}
+                    onPractice={handlePracticeClick}
+                    isListening={isListening}
+                  />
                 )}
 
                 {isSpellMode && (

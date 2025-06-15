@@ -324,7 +324,7 @@ const StudentDashboard = () => {
           </Button>
         </div>
 
-        {/* Quick Actions (including the new Quick Quiz button previously) */}
+        {/* Quick Actions */}
         <div className="flex flex-wrap gap-4 mt-2">
           <Button 
             onClick={() => handleStartActivity('speaking')} 
@@ -352,73 +352,11 @@ const StudentDashboard = () => {
           </Button>
         </div>
 
-        {/* Streak & Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="border-2 border-orange-200 bg-orange-50/50">
-            <CardContent className="flex items-center p-6">
-              <Flame className="h-8 w-8 text-orange-600 mr-3" />
-              <div>
-                <p className="text-2xl font-bold text-orange-600">{studentData.currentStreak}</p>
-                <p className="text-sm text-muted-foreground">Day Streak</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center p-6">
-              <Clock className="h-8 w-8 text-blue-600 mr-3" />
-              <div>
-                <p className="text-2xl font-bold">{studentData.weeklyTimeSpent}m</p>
-                <p className="text-sm text-muted-foreground">This Week</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center p-6">
-              <Trophy className="h-8 w-8 text-yellow-600 mr-3" />
-              <div>
-                <p className="text-2xl font-bold">{studentData.level}</p>
-                <p className="text-sm text-muted-foreground">Current Level</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center p-6">
-              <Star className="h-8 w-8 text-purple-600 mr-3" />
-              <div>
-                <p className="text-2xl font-bold">{studentData.xp}</p>
-                <p className="text-sm text-muted-foreground">Total XP</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
           {/* Left Column */}
           <div className="lg:col-span-2 space-y-6">
             {/* Performance Overview */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  Your Performance
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {Object.entries(studentData.performance).map(([skill, score]) => (
-                    <div key={skill} className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium capitalize">{skill}</span>
-                        <span className={`text-sm font-bold ${getPerformanceColor(score)}`}>
-                          {score}%
-                        </span>
-                      </div>
-                      <Progress value={score} className="h-2" />
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            
 
             {/* Dynamic Reflex Challenges */}
             {reflexChallenges.length > 0 && (
@@ -589,102 +527,16 @@ const StudentDashboard = () => {
           {/* Right Column */}
           <div className="space-y-6">
             {/* Level Progress */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="h-5 w-5" />
-                  Level Progress
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{studentData.level}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {studentData.xp} / {studentData.nextLevelXP} XP
-                  </div>
-                </div>
-                <Progress 
-                  value={(studentData.xp / studentData.nextLevelXP) * 100} 
-                  className="h-3"
-                />
-                <div className="text-center text-sm text-muted-foreground">
-                  {studentData.nextLevelXP - studentData.xp} XP to next level
-                </div>
-              </CardContent>
-            </Card>
+            
 
             {/* Badges */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Award className="h-5 w-5" />
-                  Your Badges
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-2">
-                  {studentData.badges.map((badge, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
-                      <Trophy className="h-4 w-4 text-yellow-500" />
-                      <span className="text-sm font-medium">{badge}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            
 
             {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Practice</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button 
-                  onClick={() => handleStartActivity('speaking')} 
-                  variant="outline" 
-                  className="w-full justify-start"
-                >
-                  <Zap className="h-4 w-4 mr-2" />
-                  Speaking Practice
-                </Button>
-                <Button 
-                  onClick={() => handleStartActivity('vocabulary')} 
-                  variant="outline" 
-                  className="w-full justify-start"
-                >
-                  <BookOpen className="h-4 w-4 mr-2" />
-                  Vocabulary Trainer
-                </Button>
-                <Button 
-                  onClick={() => handleStartActivity('grammar')} 
-                  variant="outline"
-                  className="w-full justify-start"
-                >
-                  <Target className="h-4 w-4 mr-2" />
-                  Grammar Clinic
-                </Button>
-              </CardContent>
-            </Card>
+            
 
             {/* Recent Activity */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {studentData.recentActivities.map((activity, index) => (
-                  <div key={index} className="flex items-center justify-between text-sm">
-                    <div>
-                      <p className="font-medium">{activity.type}</p>
-                      <p className="text-muted-foreground">{activity.time}</p>
-                    </div>
-                    <Badge variant="outline" className={getPerformanceColor(activity.score)}>
-                      {activity.score}%
-                    </Badge>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+            
 
             {/* Quick Quiz card */}
             <div

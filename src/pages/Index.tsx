@@ -138,7 +138,7 @@ const Index = () => {
           <div className="flex justify-end mb-2">
             <Button
               onClick={() => navigate('/quick-quiz')}
-              variant="gradient"
+              variant="default"
               className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-primary shadow-lg hover:scale-105 transition-all text-white px-6 py-4 rounded-2xl font-semibold text-lg"
             >
               <Trophy className="h-5 w-5 mr-2" />

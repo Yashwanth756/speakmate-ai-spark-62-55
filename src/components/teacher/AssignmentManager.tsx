@@ -46,8 +46,15 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
 
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [newAssignment, setNewAssignment] = useState({
-    type: 'reflex' as 'reflex' | 'story' | 'puzzle',
+  const [newAssignment, setNewAssignment] = useState<{
+    type: 'reflex' | 'story' | 'puzzle' | 'quick_quiz',
+    title: string,
+    content: string,
+    dueDate: string,
+    isRequired: boolean,
+    metadata: any
+  }>({
+    type: 'reflex',
     title: '',
     content: '',
     dueDate: '',

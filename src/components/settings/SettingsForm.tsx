@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -18,6 +17,7 @@ const settingsFormSchema = z.object({
   }),
   darkMode: z.boolean().default(false),
   notificationsEnabled: z.boolean().default(true),
+  mongoClusterLink: z.string().min(10, { message: "MongoDB cluster link required." }),
 });
 
 type SettingsFormValues = z.infer<typeof settingsFormSchema>;
@@ -34,11 +34,13 @@ export function SettingsForm() {
     const savedApiKey = localStorage.getItem("gemini-api-key") || "";
     const savedDarkMode = localStorage.getItem("dark-mode") === "true";
     const savedNotifications = localStorage.getItem("notifications-enabled") !== "false";
+    const savedMongoClusterLink = localStorage.getItem("mongodb-cluster-link") || "";
     
     return {
       geminiApiKey: savedApiKey,
       darkMode: savedDarkMode,
       notificationsEnabled: savedNotifications,
+      mongoClusterLink: savedMongoClusterLink,
     };
   };
 
@@ -80,11 +82,12 @@ export function SettingsForm() {
   const onSubmit = (data: SettingsFormValues) => {
     // Save API key to localStorage
     localStorage.setItem("gemini-api-key", data.geminiApiKey);
-    setIsSaved(true);
-    
-    // Save other settings (removed mute-sounds)
     localStorage.setItem("dark-mode", data.darkMode.toString());
     localStorage.setItem("notifications-enabled", data.notificationsEnabled.toString());
+    localStorage.setItem("mongodb-cluster-link", data.mongoClusterLink);
+    
+    // Save other settings (removed mute-sounds)
+    setIsSaved(true);
     
     // Apply settings immediately
     setIsDarkMode(data.darkMode);
@@ -301,6 +304,44 @@ export function SettingsForm() {
                         )}
                       </div>
                       <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              {/* MongoDB Cluster Link Section */}
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                  MongoDB Cluster
+                </h2>
+                <FormField
+                  control={form.control}
+                  name="mongoClusterLink"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-lg">MongoDB Cluster URI</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="mongodb+srv://..."
+                          {...field}
+                          className="font-mono dark:bg-gray-800/80 dark:border-gray-700 pr-20 transition-all duration-200 border-2 focus-visible:border-primary"
+                          onChange={(e) => {
+                            field.onChange(e);
+                            setIsSaved(false);
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                      <div className="flex items-center justify-between mt-1">
+                        <p className="text-xs text-muted-foreground">
+                          Paste your MongoDB URI here for backend API use.
+                        </p>
+                        {isSaved && field.value && (
+                          <span className="text-xs text-green-500 dark:text-green-400 flex items-center">
+                            Saved
+                          </span>
+                        )}
+                      </div>
                     </FormItem>
                   )}
                 />

@@ -185,13 +185,49 @@ const VocabularyTrainer: React.FC = () => {
     setIsSpellMode(!isSpellMode);
   };
 
-  // NEW: Handler to show more info about the word
+  // NEW: Handler to show interesting usage of the word in various tenses/voice
   const handleKnowMore = () => {
+    const { word, partOfSpeech } = currentWord;
+
+    // Only basic logic for English; could use AI in real apps
+    let examples: string[] = [];
+
+    if (partOfSpeech === "verb") {
+      examples = [
+        `Active (Present): I ${word} every day.`,
+        `Active (Past): I ${word}ed yesterday.`,
+        `Passive (Present): The book is ${word}ed by me.`,
+        `Passive (Past): The book was ${word}ed by me.`
+      ];
+    } else if (partOfSpeech === "noun") {
+      examples = [
+        `Singular: I saw a ${word}.`,
+        `Plural: There are many ${word}s in the park.`,
+        `With Article: The ${word} is important.`,
+      ];
+    } else if (partOfSpeech === "adjective") {
+      examples = [
+        `Positive: She is very ${word}.`,
+        `Comparative: She is more ${word} than her brother.`,
+        `Superlative: She is the most ${word} person here.`,
+      ];
+    } else {
+      examples = [
+        `This word "${word}" can be used in various contexts.`,
+        `Try searching for "${word}" in example sentences online!`
+      ];
+    }
+
     toast({
-      title: `Did you know?`,
-      description: currentWord.memoryTip || "No extra fact for this word.",
-      duration: 5000,
-      variant: "default"
+      title: `Example usage for "${word}"`,
+      description: (
+        <div className="space-y-1">
+          {examples.map((ex, idx) => (
+            <div key={idx}>{ex}</div>
+          ))}
+        </div>
+      ),
+      duration: 6000
     });
   };
 
@@ -256,7 +292,7 @@ const VocabularyTrainer: React.FC = () => {
                     Spelling Practice
                   </Button>
                   
-                  {/* Replaced "New Word" button with "Know More" */}
+                  {/* Modified "Know More" button */}
                   <Button
                     onClick={handleKnowMore}
                     variant="outline"

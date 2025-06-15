@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -15,6 +14,7 @@ import {
 } from "lucide-react";
 import { useAssignments } from "@/contexts/AssignmentContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { StudentProgressModal } from './StudentProgressModal';
 
 // Mock student data
 const MOCK_STUDENTS = [
@@ -81,6 +81,11 @@ export const StudentActivityTracker: React.FC<StudentActivityTrackerProps> = ({
     
     return Math.round((completedAssignments / studentAssignments) * 100);
   };
+
+  const [showModal, setShowModal] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<
+    { id: string; name: string; class: string; section: string } | null
+  >(null);
 
   return (
     <div className="space-y-6">
@@ -167,7 +172,15 @@ export const StudentActivityTracker: React.FC<StudentActivityTrackerProps> = ({
                     <TableRow key={student.id}>
                       <TableCell>
                         <div>
-                          <p className="font-medium">{student.name}</p>
+                          <button
+                            onClick={() => {
+                              setSelectedStudent(student);
+                              setShowModal(true);
+                            }}
+                            className="font-medium text-blue-600 hover:underline transition"
+                          >
+                            {student.name}
+                          </button>
                           <p className="text-sm text-muted-foreground">@{student.id}</p>
                         </div>
                       </TableCell>
@@ -214,6 +227,13 @@ export const StudentActivityTracker: React.FC<StudentActivityTrackerProps> = ({
           </div>
         </CardContent>
       </Card>
+      <StudentProgressModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        student={selectedStudent}
+        studentProgress={studentProgress}
+        assignments={filteredAssignments}
+      />
     </div>
   );
 };

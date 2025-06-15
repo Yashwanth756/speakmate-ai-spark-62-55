@@ -84,15 +84,15 @@ const ConversationDisplay = ({
                 }`}>
                   {entry.speaker === 'ai' ? <MessageSquare className="h-4 w-4" /> : <User className="h-4 w-4" />}
                 </div>
-                <div className={`p-3 rounded-lg relative ${
+                <div className={`p-3 pr-12 rounded-lg relative ${
                   entry.speaker === 'ai' ? 'bg-muted' : 'bg-primary text-primary-foreground'
                 }`}>
-                  {entry.text}
+                  <span className="block">{entry.text}</span>
                   {entry.speaker === 'ai' && onSpeakMessage && (
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="h-8 w-8 absolute top-1 right-1 rounded-full bg-accent text-accent-foreground shadow-glow-accent hover:scale-105 transition-transform hover:bg-accent/90 active:scale-100 focus:ring-2 focus:ring-accent"
+                      className="h-8 w-8 absolute top-2 right-2 rounded-full bg-accent text-accent-foreground shadow-glow-accent hover:scale-105 transition-transform hover:bg-accent/90 active:scale-100 focus:ring-2 focus:ring-accent"
                       onClick={() => entry.text && onSpeakMessage(entry.text)}
                       title="Listen to this message"
                     >

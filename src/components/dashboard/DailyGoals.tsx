@@ -1,5 +1,5 @@
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Award } from "lucide-react";
@@ -14,6 +14,31 @@ export interface Goal {
   current: number;
 }
 
+// Demo goals for fallback
+const demoGoals: Goal[] = [
+  {
+    id: "1",
+    name: "Complete 1 speaking assignment",
+    completed: true,
+    target: 1,
+    current: 1,
+  },
+  {
+    id: "2",
+    name: "Learn 5 new vocabulary words",
+    completed: false,
+    target: 5,
+    current: 3,
+  },
+  {
+    id: "3",
+    name: "Score 80+ in a quiz",
+    completed: false,
+    target: 1,
+    current: 0,
+  },
+];
+
 export const DailyGoals: React.FC = () => {
   const { user } = useAuth();
   const studentId = user?.email || user?.id; // using email/id as unique key
@@ -22,18 +47,22 @@ export const DailyGoals: React.FC = () => {
 
   // Derive goals: each assignment becomes a goal for demo purposes.
   const goals: Goal[] = useMemo(() => {
-    if (!data) return [];
-    return data.assignments.map((a: any) => {
-      const prog = data.progress.find((p: any) => p.assignmentId === a.id);
-      return {
-        id: a.id,
-        name: a.title,
-        completed: prog?.status === "completed",
-        target: 1,
-        current: prog?.status === "completed" ? 1 : 0
-      };
-    });
-  }, [data]);
+    if (isLoading) return [];
+    if (data && Array.isArray(data.assignments) && data.assignments.length > 0) {
+      return data.assignments.map((a: any) => {
+        const prog = data.progress.find((p: any) => p.assignmentId === a.id);
+        return {
+          id: a.id,
+          name: a.title,
+          completed: prog?.status === "completed",
+          target: 1,
+          current: prog?.status === "completed" ? 1 : 0
+        };
+      });
+    }
+    // Fallback to demo goals if there's no user data
+    return demoGoals;
+  }, [data, isLoading]);
 
   const overallProgress = useMemo(() => {
     if (!goals.length) return 0;

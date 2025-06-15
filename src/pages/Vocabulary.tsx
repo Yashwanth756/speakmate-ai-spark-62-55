@@ -185,6 +185,16 @@ const VocabularyTrainer: React.FC = () => {
     setIsSpellMode(!isSpellMode);
   };
 
+  // NEW: Handler to show more info about the word
+  const handleKnowMore = () => {
+    toast({
+      title: `Did you know?`,
+      description: currentWord.memoryTip || "No extra fact for this word.",
+      duration: 5000,
+      variant: "default"
+    });
+  };
+
   return (
     <SidebarProvider>
       <div className="min-h-screen bg-background flex w-full">
@@ -245,15 +255,19 @@ const VocabularyTrainer: React.FC = () => {
                     <Book className="mr-2 h-4 w-4" />
                     Spelling Practice
                   </Button>
-                  {/* Removed Quiz Mode button */}
+                  
+                  {/* Replaced "New Word" button with "Know More" */}
                   <Button
-                    onClick={getRandomWord}
+                    onClick={handleKnowMore}
                     variant="outline"
                     className="flex items-center justify-center"
                   >
-                    <Award className="mr-2 h-4 w-4" />
-                    New Word
+                    <BarChart className="mr-2 h-4 w-4" />
+                    Know More
                   </Button>
+                  
+                  {/* To keep 3 columns, retain a placeholder or leave blank */}
+                  <div />
                 </div>
               </div>
 

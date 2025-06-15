@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { toast } from "sonner";
 import { resetChatHistory, sendMessageToGemini } from '@/lib/gemini-api';
@@ -43,8 +42,11 @@ export function useConversationState() {
       try {
         resetChatHistory(activeTopic);
         const initialGreeting = "Hi, I'm Iyraa, your friendly English tutor. I'm here to help you learn, practice, and fall in love with English — one conversation at a time! What would you like to talk about today?";
+        // Reset conversation history to only the greeting
         setConversationHistory([{ speaker: 'ai', text: initialGreeting }]);
         setCurrentQuestion(initialGreeting);
+        // Log for debugging
+        console.log("[ConversationState] Initialized conversation, history:", [{ speaker: 'ai', text: initialGreeting }]);
         return true;
       } catch (error) {
         console.error("Error initializing conversation:", error);
@@ -63,6 +65,8 @@ export function useConversationState() {
     
     try {
       resetChatHistory(value);
+      // Wipe conversation to avoid "previous chats"
+      setConversationHistory([]); // <-- THIS LINE IS ADDED!
       const topicGreeting = await sendMessageToGemini(`Let's talk about ${value.replace('_', ' ')}. Ask me a question about this topic.`, value);
       
       if (topicGreeting.includes("Sorry, I encountered an error")) {
@@ -70,12 +74,12 @@ export function useConversationState() {
         toast.error("Error connecting to the conversation AI");
       }
       
-      setConversationHistory(prev => [
-        ...prev, 
-        { speaker: 'ai', text: topicGreeting }
-      ]);
+      // Only show the new topic greeting in history
+      setConversationHistory([{ speaker: 'ai', text: topicGreeting }]);
       setCurrentQuestion(topicGreeting);
       toast.success(`Topic changed to ${value.replace('_', ' ')}`);
+      // Debug log
+      console.log("[ConversationState] Topic changed, history:", [{ speaker: 'ai', text: topicGreeting }]);
       return topicGreeting;
     } catch (error) {
       setHasApiError(true);
@@ -141,10 +145,13 @@ export function useConversationState() {
 
   // Clear conversation history
   const clearConversationHistory = () => {
+    // Clear history before resetting!
     setConversationHistory([]);
     setCurrentQuestion("");
     resetChatHistory(activeTopic);
     toast.success("Conversation cleared");
+    // Debug log
+    console.log("[ConversationState] Cleared conversation history.");
   };
 
   return {

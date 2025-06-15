@@ -16,7 +16,7 @@ export const StoryDisplay: React.FC<StoryDisplayProps> = ({ story, onProgressUpd
   const [wordStatus, setWordStatus] = useState<('pending' | 'correct' | 'incorrect')[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [accumulatedTranscript, setAccumulatedTranscript] = useState('');
-  const { transcript, resetTranscript, startListening, stopListening, supported } = useSpeechRecognition();
+  const { transcript, interimTranscript, resetTranscript, startListening, stopListening, supported } = useSpeechRecognition();
   
   // Process the story into words when it changes
   useEffect(() => {
@@ -36,10 +36,13 @@ export const StoryDisplay: React.FC<StoryDisplayProps> = ({ story, onProgressUpd
 
   // Check words when transcript changes - maintain continuous checking
   useEffect(() => {
-    if (!isListening || !transcript || currentWordIndex >= words.length) return;
+    if (!isListening || (!transcript && !interimTranscript) || currentWordIndex >= words.length) return;
+
+    // Combine finalized and interim transcript for fast/live effect
+    const liveTranscript = (transcript + " " + (interimTranscript || "")).toLowerCase().trim();
 
     // Get all spoken words from the continuous transcript
-    const spokenWords = transcript.toLowerCase().trim().split(/\s+/).filter(word => word.length > 0);
+    const spokenWords = liveTranscript.split(/\s+/).filter(word => word.length > 0);
     const newWordStatus = [...wordStatus];
     let newCurrentIndex = currentWordIndex;
     
@@ -67,9 +70,9 @@ export const StoryDisplay: React.FC<StoryDisplayProps> = ({ story, onProgressUpd
       setWordStatus(newWordStatus);
     }
     
-    // Keep the transcript for continuous speech
-    setAccumulatedTranscript(transcript);
-  }, [transcript, isListening, currentWordIndex, words, wordStatus, onProgressUpdate]);
+    // Keep the transcript for continuous speech (we now set it to full live text)
+    setAccumulatedTranscript(liveTranscript);
+  }, [transcript, interimTranscript, isListening, currentWordIndex, words, wordStatus, onProgressUpdate]);
 
   const handleStartReading = () => {
     if (!supported) {
@@ -170,10 +173,10 @@ export const StoryDisplay: React.FC<StoryDisplayProps> = ({ story, onProgressUpd
               }
             </p>
             
-            {(transcript || accumulatedTranscript) && (
+            {(transcript || interimTranscript) && (
               <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="font-medium text-primary">Continuous Speech: </span>
+                  <span className="font-medium text-primary">Continuous Speech:</span>
                   <Button 
                     variant="ghost" 
                     size="sm" 
@@ -184,7 +187,15 @@ export const StoryDisplay: React.FC<StoryDisplayProps> = ({ story, onProgressUpd
                     Clear
                   </Button>
                 </div>
-                <p className="text-lg font-mono">{transcript || accumulatedTranscript}</p>
+                {/* Display interim transcription live with a subtle style */}
+                <p className="text-lg font-mono">
+                  {transcript}
+                  {interimTranscript && (
+                    <span className="opacity-70 text-blue-600 animate-pulse">
+                      {" "}{interimTranscript}
+                    </span>
+                  )}
+                </p>
               </div>
             )}
           </div>
@@ -198,7 +209,7 @@ export const StoryDisplay: React.FC<StoryDisplayProps> = ({ story, onProgressUpd
                 className="bg-green-600 hover:bg-green-700 text-white shadow-lg"
               >
                 <Mic className="mr-2 h-5 w-5" />
-                {accumulatedTranscript ? "Continue Reading" : "Start Reading Practice"}
+                {(accumulatedTranscript && accumulatedTranscript.trim() !== "") ? "Continue Reading" : "Start Reading Practice"}
               </Button>
             ) : (
               <Button 

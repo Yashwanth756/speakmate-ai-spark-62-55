@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/app-sidebar";
@@ -84,7 +83,7 @@ const Grammar = () => {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen bg-gray-50 flex w-full">
+      <div className="min-h-screen bg-background flex w-full">
         <AppSidebar />
         <div className="flex-1 p-8">
           <div className="max-w-4xl mx-auto">

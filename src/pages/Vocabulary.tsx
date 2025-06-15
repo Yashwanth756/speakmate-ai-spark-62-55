@@ -187,7 +187,7 @@ const VocabularyTrainer: React.FC = () => {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen bg-gray-50 flex w-full">
+      <div className="min-h-screen bg-background flex w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col items-center p-4 md:p-8">
           <div className="w-full max-w-6xl animate-fade-in">

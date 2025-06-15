@@ -3,7 +3,7 @@ import { useAuth } from './AuthContext';
 
 export interface Assignment {
   id: string;
-  type: 'reflex' | 'story' | 'puzzle';
+  type: 'reflex' | 'story' | 'puzzle' | 'quick_quiz'; // Add quick_quiz
   title: string;
   content: string;
   targetClass: string;
@@ -19,6 +19,12 @@ export interface Assignment {
     difficulty?: string;
     timeLimit?: number;
     maxAttempts?: number;
+    // Quick Quiz fields
+    quizTimer?: number; // seconds
+    questions?: {
+      question: string;
+      answer: string;
+    }[];
   };
 }
 
@@ -97,6 +103,26 @@ const MOCK_ASSIGNMENTS: Assignment[] = [
       words: ['experiment', 'hypothesis', 'analysis', 'conclusion', 'laboratory'],
       difficulty: 'medium',
       maxAttempts: 3
+    }
+  },
+  {
+    id: '4',
+    type: 'quick_quiz',
+    title: 'English Quick Quiz - Sample',
+    content: 'A timed quiz. Answer all questions!',
+    targetClass: 'Class 8',
+    targetSection: 'A',
+    createdBy: 'Ms. Johnson',
+    createdAt: '2024-06-12T15:00:00Z',
+    updatedAt: '2024-06-12T15:00:00Z',
+    status: 'published',
+    isRequired: false,
+    metadata: {
+      quizTimer: 120,
+      questions: [
+        { question: 'What is the synonym for "happy"?', answer: 'joyful' },
+        { question: 'Spell the opposite of "success".', answer: 'failure' }
+      ]
     }
   }
 ];

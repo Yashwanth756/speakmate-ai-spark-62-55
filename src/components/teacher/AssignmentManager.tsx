@@ -59,8 +59,12 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
   const [puzzleWordInput, setPuzzleWordInput] = useState('');
   const [puzzleWords, setPuzzleWords] = useState<string[]>([]);
 
+  // Add quiz-specific state
+  const [quizTimer, setQuizTimer] = useState(60); // seconds
+  const [quizQuestions, setQuizQuestions] = useState([{ question: '', answer: '' }]);
+
   // Reset form when type changes (for clarity)
-  const handleAssignmentTypeChange = (type: 'reflex' | 'story' | 'puzzle') => {
+  const handleAssignmentTypeChange = (type: 'reflex' | 'story' | 'puzzle' | 'quick_quiz') => {
     setNewAssignment({
       type,
       title: '',
@@ -69,9 +73,13 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
       isRequired: true,
       metadata: {}
     });
-    if (type !== 'puzzle') {
+    if (type === 'puzzle') {
       setPuzzleWords([]);
       setPuzzleWordInput('');
+    }
+    if (type === 'quick_quiz') {
+      setQuizQuestions([{ question: '', answer: '' }]);
+      setQuizTimer(60);
     }
   };
 
@@ -82,10 +90,22 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
   );
 
   const handleCreateAssignment = () => {
-    if (!newAssignment.title.trim() && newAssignment.type !== 'puzzle') return;
-    if (newAssignment.type === 'reflex' && !newAssignment.content.trim()) return;
-    if (newAssignment.type === 'story' && (!newAssignment.title.trim() || !newAssignment.content.trim())) return;
-    if (newAssignment.type === 'puzzle' && puzzleWords.length === 0) return;
+    // Validation per type:
+    if (newAssignment.type === 'quick_quiz') {
+      if (!newAssignment.title.trim() || quizQuestions.length === 0 || quizQuestions.some(q => !q.question.trim() || !q.answer.trim())) {
+        toast({
+          title: "Quiz Incomplete",
+          description: "Please provide the quiz title and all questions and answers.",
+          variant: "destructive"
+        });
+        return;
+      }
+    } else {
+      if (!newAssignment.title.trim() && newAssignment.type !== 'puzzle') return;
+      if (newAssignment.type === 'reflex' && !newAssignment.content.trim()) return;
+      if (newAssignment.type === 'story' && (!newAssignment.title.trim() || !newAssignment.content.trim())) return;
+      if (newAssignment.type === 'puzzle' && puzzleWords.length === 0) return;
+    }
 
     if (!selectedClass || selectedClass === 'all-classes' || !selectedSection || selectedSection === 'all-sections') {
       toast({
@@ -96,27 +116,50 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
       return;
     }
 
-    // Compose the metadata and content fields differently per assignment type
-    let assignmentToCreate: Omit<Assignment, 'id' | 'createdAt' | 'updatedAt'> = {
-      ...newAssignment,
-      targetClass: selectedClass,
-      targetSection: selectedSection,
-      createdBy: user?.fullName || 'Unknown Teacher',
-      status: "published", // fixes TS error
-    };
+    let assignmentToCreate: Omit<Assignment, 'id' | 'createdAt' | 'updatedAt'>;
 
     if (newAssignment.type === 'puzzle') {
-      assignmentToCreate.title = newAssignment.title || 'Word Puzzle';
-      assignmentToCreate.content = newAssignment.content || 'Word puzzle assignment';
-      assignmentToCreate.metadata = { ...assignmentToCreate.metadata, words: puzzleWords };
+      assignmentToCreate = {
+        ...newAssignment,
+        title: newAssignment.title || 'Word Puzzle',
+        content: newAssignment.content || 'Word puzzle assignment',
+        targetClass: selectedClass,
+        targetSection: selectedSection,
+        createdBy: user?.fullName || 'Unknown Teacher',
+        status: "published",
+        metadata: { ...newAssignment.metadata, words: puzzleWords }
+      };
     } else if (newAssignment.type === 'story') {
-      assignmentToCreate.title = newAssignment.title;
-      assignmentToCreate.content = newAssignment.content;
-      assignmentToCreate.metadata = {};
+      assignmentToCreate = {
+        ...newAssignment,
+        targetClass: selectedClass,
+        targetSection: selectedSection,
+        createdBy: user?.fullName || 'Unknown Teacher',
+        status: "published",
+        metadata: {}
+      };
     } else if (newAssignment.type === 'reflex') {
-      assignmentToCreate.title = newAssignment.title || 'Reflex Challenge';
-      assignmentToCreate.content = newAssignment.content;
-      assignmentToCreate.metadata = {};
+      assignmentToCreate = {
+        ...newAssignment,
+        title: newAssignment.title || 'Reflex Challenge',
+        targetClass: selectedClass,
+        targetSection: selectedSection,
+        createdBy: user?.fullName || 'Unknown Teacher',
+        status: "published",
+        metadata: {}
+      };
+    } else if (newAssignment.type === 'quick_quiz') {
+      assignmentToCreate = {
+        ...newAssignment,
+        targetClass: selectedClass,
+        targetSection: selectedSection,
+        createdBy: user?.fullName || 'Unknown Teacher',
+        status: "published",
+        metadata: {
+          quizTimer,
+          questions: quizQuestions
+        }
+      };
     }
 
     createAssignment(assignmentToCreate);
@@ -137,6 +180,8 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
     setPuzzleWords([]);
     setPuzzleWordInput('');
     setIsCreating(false);
+    setQuizQuestions([{ question: '', answer: '' }]);
+    setQuizTimer(60);
   };
 
   const handleDeleteAssignment = (id: string, title: string) => {
@@ -177,6 +222,7 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
       case 'reflex': return <Zap className="h-4 w-4" />;
       case 'story': return <BookOpen className="h-4 w-4" />;
       case 'puzzle': return <Puzzle className="h-4 w-4" />;
+      case 'quick_quiz': return <BookOpen className="h-4 w-4" />;
       default: return <BookOpen className="h-4 w-4" />;
     }
   };
@@ -220,7 +266,7 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
                 <Label>Assignment Type</Label>
                 <Select
                   value={newAssignment.type}
-                  onValueChange={(value: 'reflex' | 'story' | 'puzzle') => handleAssignmentTypeChange(value)}
+                  onValueChange={(value: any) => handleAssignmentTypeChange(value)}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -229,6 +275,7 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
                     <SelectItem value="reflex">Reflex Challenge</SelectItem>
                     <SelectItem value="story">Story Builder</SelectItem>
                     <SelectItem value="puzzle">Word Puzzle</SelectItem>
+                    <SelectItem value="quick_quiz">Quick Quiz</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -241,124 +288,223 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
                 <Input value={selectedSection === 'all-sections' ? '' : `Section ${selectedSection}`} disabled />
               </div>
             </div>
-            {/* Dynamic form fields based on type */}
-            {
-              newAssignment.type === 'reflex' && (
-                <>
+
+            {/* Conditional Quick Quiz form */}
+            {newAssignment.type === 'quick_quiz' && (
+              <div className="space-y-4">
+                <div>
+                  <Label>Quiz Title</Label>
+                  <Input
+                    placeholder="Enter quiz title..."
+                    value={newAssignment.title}
+                    onChange={(e) => setNewAssignment(prev => ({ ...prev, title: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label>Quiz Instructions (optional)</Label>
+                  <Textarea
+                    placeholder="Brief instructions for students..."
+                    value={newAssignment.content}
+                    onChange={(e) => setNewAssignment(prev => ({ ...prev, content: e.target.value }))}
+                    rows={2}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>Challenge Title</Label>
+                    <Label>Timer (seconds)</Label>
                     <Input
-                      placeholder="Enter challenge title..."
-                      value={newAssignment.title}
-                      onChange={(e) => setNewAssignment(prev => ({ ...prev, title: e.target.value }))}
+                      type="number"
+                      min={10}
+                      max={3600}
+                      value={quizTimer}
+                      onChange={e => setQuizTimer(Number(e.target.value))}
                     />
                   </div>
                   <div>
-                    <Label>Challenge Question</Label>
-                    <Textarea
-                      placeholder="Enter the reflex challenge question..."
-                      value={newAssignment.content}
-                      onChange={(e) => setNewAssignment(prev => ({ ...prev, content: e.target.value }))}
-                      rows={3}
-                    />
-                  </div>
-                </>
-              )
-            }
-            {
-              newAssignment.type === 'story' && (
-                <>
-                  <div>
-                    <Label>Story Title</Label>
+                    <Label>Number of Questions</Label>
                     <Input
-                      placeholder="Enter story title..."
-                      value={newAssignment.title}
-                      onChange={(e) => setNewAssignment(prev => ({ ...prev, title: e.target.value }))}
+                      type="number"
+                      min={1}
+                      value={quizQuestions.length}
+                      onChange={e => {
+                        const val = Math.max(1, Number(e.target.value));
+                        setQuizQuestions(arr => {
+                          if (val > arr.length) {
+                            // Add blanks
+                            return arr.concat(Array(val - arr.length).fill({ question: '', answer: '' }));
+                          } else if (val < arr.length) {
+                            // Truncate
+                            return arr.slice(0, val);
+                          }
+                          return arr;
+                        });
+                      }}
                     />
                   </div>
-                  <div>
-                    <Label>Story Content</Label>
-                    <Textarea
-                      placeholder="Write your story here..."
-                      value={newAssignment.content}
-                      onChange={(e) => setNewAssignment(prev => ({ ...prev, content: e.target.value }))}
-                      rows={5}
-                    />
-                  </div>
-                </>
-              )
-            }
-            {
-              newAssignment.type === 'puzzle' && (
-                <>
-                  <div>
-                    <Label>Puzzle Title (optional)</Label>
-                    <Input
-                      placeholder="Enter puzzle title..."
-                      value={newAssignment.title}
-                      onChange={(e) => setNewAssignment(prev => ({ ...prev, title: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <Label>Puzzle Description (optional)</Label>
-                    <Textarea
-                      placeholder="Describe the puzzle/challenge (optional)..."
-                      value={newAssignment.content}
-                      onChange={(e) => setNewAssignment(prev => ({ ...prev, content: e.target.value }))}
-                      rows={2}
-                    />
-                  </div>
-                  <div>
-                    <Label>Words for Puzzle</Label>
-                    <div className="flex flex-col gap-1">
-                      <div className="flex gap-2">
+                </div>
+                <div>
+                  <Label>Questions & Answers</Label>
+                  <div className="space-y-3">
+                    {quizQuestions.map((q, idx) => (
+                      <div key={idx} className="flex flex-col md:flex-row gap-2 items-center">
                         <Input
-                          placeholder="Add word"
-                          value={puzzleWordInput}
-                          onChange={(e) => setPuzzleWordInput(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter' && puzzleWordInput.trim()) {
-                              e.preventDefault();
-                              if (!puzzleWords.includes(puzzleWordInput.trim())) {
-                                setPuzzleWords([...puzzleWords, puzzleWordInput.trim()]);
-                              }
-                              setPuzzleWordInput('');
-                            }
-                          }}
+                          className="flex-1"
+                          placeholder={`Question ${idx + 1}`}
+                          value={q.question}
+                          onChange={e => setQuizQuestions(arr => {
+                            const updated = [...arr];
+                            updated[idx].question = e.target.value;
+                            return updated;
+                          })}
                         />
-                        <Button
-                          type="button"
-                          onClick={() => {
-                            if (puzzleWordInput.trim() && !puzzleWords.includes(puzzleWordInput.trim())) {
+                        <Input
+                          className="flex-1"
+                          placeholder="Answer"
+                          value={q.answer}
+                          onChange={e => setQuizQuestions(arr => {
+                            const updated = [...arr];
+                            updated[idx].answer = e.target.value;
+                            return updated;
+                          })}
+                        />
+                        {quizQuestions.length > 1 && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setQuizQuestions(arr => arr.filter((_, i) => i !== idx))}
+                          >
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="mt-2"
+                    variant="outline"
+                    onClick={() => setQuizQuestions(arr => [...arr, { question: '', answer: '' }])}
+                  >
+                    Add Question
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Existing dynamic forms for other types */}
+            {newAssignment.type === 'reflex' && (
+              <>
+                <div>
+                  <Label>Challenge Title</Label>
+                  <Input
+                    placeholder="Enter challenge title..."
+                    value={newAssignment.title}
+                    onChange={(e) => setNewAssignment(prev => ({ ...prev, title: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label>Challenge Question</Label>
+                  <Textarea
+                    placeholder="Enter the reflex challenge question..."
+                    value={newAssignment.content}
+                    onChange={(e) => setNewAssignment(prev => ({ ...prev, content: e.target.value }))}
+                    rows={3}
+                  />
+                </div>
+              </>
+            )}
+            {newAssignment.type === 'story' && (
+              <>
+                <div>
+                  <Label>Story Title</Label>
+                  <Input
+                    placeholder="Enter story title..."
+                    value={newAssignment.title}
+                    onChange={(e) => setNewAssignment(prev => ({ ...prev, title: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label>Story Content</Label>
+                  <Textarea
+                    placeholder="Write your story here..."
+                    value={newAssignment.content}
+                    onChange={(e) => setNewAssignment(prev => ({ ...prev, content: e.target.value }))}
+                    rows={5}
+                  />
+                </div>
+              </>
+            )}
+            {newAssignment.type === 'puzzle' && (
+              <>
+                <div>
+                  <Label>Puzzle Title (optional)</Label>
+                  <Input
+                    placeholder="Enter puzzle title..."
+                    value={newAssignment.title}
+                    onChange={(e) => setNewAssignment(prev => ({ ...prev, title: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label>Puzzle Description (optional)</Label>
+                  <Textarea
+                    placeholder="Describe the puzzle/challenge (optional)..."
+                    value={newAssignment.content}
+                    onChange={(e) => setNewAssignment(prev => ({ ...prev, content: e.target.value }))}
+                    rows={2}
+                  />
+                </div>
+                <div>
+                  <Label>Words for Puzzle</Label>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Add word"
+                        value={puzzleWordInput}
+                        onChange={(e) => setPuzzleWordInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && puzzleWordInput.trim()) {
+                            e.preventDefault();
+                            if (!puzzleWords.includes(puzzleWordInput.trim())) {
                               setPuzzleWords([...puzzleWords, puzzleWordInput.trim()]);
                             }
                             setPuzzleWordInput('');
-                          }}
-                          size="sm"
-                          variant="outline"
-                        >
-                          Add
-                        </Button>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {puzzleWords.map(word => (
-                          <span key={word} className="bg-blue-100 text-blue-800 rounded px-2 py-0.5 text-xs flex items-center gap-1">
-                            {word}
-                            <button
-                              type="button"
-                              className="ml-1 text-red-500 hover:text-red-700"
-                              onClick={() => setPuzzleWords(puzzleWords.filter(w => w !== word))}
-                            >
-                              &times;
-                            </button>
-                          </span>
-                        ))}
-                      </div>
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          if (puzzleWordInput.trim() && !puzzleWords.includes(puzzleWordInput.trim())) {
+                            setPuzzleWords([...puzzleWords, puzzleWordInput.trim()]);
+                          }
+                          setPuzzleWordInput('');
+                        }}
+                        size="sm"
+                        variant="outline"
+                      >
+                        Add
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {puzzleWords.map(word => (
+                        <span key={word} className="bg-blue-100 text-blue-800 rounded px-2 py-0.5 text-xs flex items-center gap-1">
+                          {word}
+                          <button
+                            type="button"
+                            className="ml-1 text-red-500 hover:text-red-700"
+                            onClick={() => setPuzzleWords(puzzleWords.filter(w => w !== word))}
+                          >
+                            &times;
+                          </button>
+                        </span>
+                      ))}
                     </div>
                   </div>
-                </>
-              )
-            }
+                </div>
+              </>
+            )}
             {/* Shared fields */}
             <div className="flex items-center gap-4">
               <div className="flex-1">

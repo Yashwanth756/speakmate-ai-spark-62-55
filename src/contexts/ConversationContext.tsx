@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useConversationState, ConversationEntry } from '@/hooks/use-conversation-state';
 import { useSpeechAudio } from '@/hooks/use-speech-audio';
@@ -51,7 +50,8 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     handleStartRecording,
     handleStopRecording: stopRecording,
     speakText,
-    stopSpeaking
+    stopSpeaking,
+    resetTranscript
   } = useSpeechAudio();
   
   // New state for storing original and corrected sentences
@@ -81,6 +81,8 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       if (response?.nextQuestion) {
         speakText(response.nextQuestion);
       }
+      // <<< Reset transcript after processing >>>
+      resetTranscript();
     }
   };
   
@@ -140,6 +142,8 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     // Clear the sentence corrections
     setLastUserSentence('');
     setCorrectedSentence('');
+    // <<< Reset transcript here too >>>
+    resetTranscript();
     // Reinitialize conversation
     initializeConversation();
   };
@@ -157,6 +161,14 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     if (response?.nextQuestion) {
       speakText(response.nextQuestion);
     }
+    // <<< Reset transcript after manual text submission, just in case >>>
+    resetTranscript();
+  };
+
+  // Patch startRecording to always reset transcript first!
+  const patchedStartRecording = () => {
+    resetTranscript();
+    handleStartRecording();
   };
 
   const value = {
@@ -174,7 +186,7 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     lastUserSentence,
     correctedSentence,
     handleTopicChange: handleTopicChangeWithAudio,
-    handleStartRecording,
+    handleStartRecording: patchedStartRecording, // << use patched
     handleStopRecording,
     speakText,
     stopSpeaking,

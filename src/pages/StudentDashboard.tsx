@@ -312,7 +312,19 @@ const StudentDashboard = () => {
           )}
         </div>
 
-        {/* Quick Actions (including the new Quick Quiz button) */}
+        {/* Quick Quiz Button */}
+        <div className="flex justify-end mb-2">
+          <Button
+            onClick={() => navigate('/quick-quiz')}
+            variant="default"
+            className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-primary shadow-lg hover:scale-105 transition-all text-white px-6 py-4 rounded-2xl font-semibold text-lg border-none"
+          >
+            <Trophy className="h-5 w-5 mr-2" />
+            Quick Quiz
+          </Button>
+        </div>
+
+        {/* Quick Actions (including the new Quick Quiz button previously) */}
         <div className="flex flex-wrap gap-4 mt-2">
           <Button 
             onClick={() => handleStartActivity('speaking')} 
@@ -337,14 +349,6 @@ const StudentDashboard = () => {
           >
             <Target className="h-4 w-4 mr-2" />
             Grammar Clinic
-          </Button>
-          <Button 
-            onClick={() => navigate('/quick-quiz')}
-            variant="outline"
-            className="justify-start"
-          >
-            <Trophy className="h-4 w-4 mr-2" />
-            Quick Quiz
           </Button>
         </div>
 

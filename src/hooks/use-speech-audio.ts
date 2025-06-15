@@ -9,7 +9,6 @@ interface SpeechAudioHook {
   handleStopRecording: () => void;
   speakText: (text: string) => void;
   stopSpeaking: () => void;
-  resetTranscript: () => void; // Add this!
 }
 
 export const useSpeechAudio = (): SpeechAudioHook => {
@@ -18,19 +17,11 @@ export const useSpeechAudio = (): SpeechAudioHook => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const recognitionRef = useRef<any>(null);
 
-  // Add transcript resetter
-  const resetTranscript = useCallback(() => {
-    setTranscript('');
-  }, []);
-
   const handleStartRecording = useCallback(() => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       console.error('Speech recognition not supported');
       return;
     }
-
-    // <<< RESET transcript when starting listening! >>>
-    setTranscript('');
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     recognitionRef.current = new SpeechRecognition();
@@ -103,7 +94,6 @@ export const useSpeechAudio = (): SpeechAudioHook => {
     handleStartRecording,
     handleStopRecording,
     speakText,
-    stopSpeaking,
-    resetTranscript // Expose resetTranscript
+    stopSpeaking
   };
 };

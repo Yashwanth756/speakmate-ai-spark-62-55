@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useConversationState, ConversationEntry } from '@/hooks/use-conversation-state';
 import { useSpeechAudio } from '@/hooks/use-speech-audio';
@@ -51,44 +50,37 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     handleStartRecording,
     handleStopRecording: stopRecording,
     speakText,
-    stopSpeaking
+    stopSpeaking,
+    resetTranscript
   } = useSpeechAudio();
   
-  // New state for storing original and corrected sentences
   const [lastUserSentence, setLastUserSentence] = useState('');
   const [correctedSentence, setCorrectedSentence] = useState('');
   
-  // Initialize conversation
   useEffect(() => {
     initializeConversation();
   }, []);
   
-  // Define the actual stop recording handler that processes the user response
   const handleStopRecording = async () => {
     stopRecording();
-    
+
     if (transcript) {
       setLastUserSentence(transcript);
-      
-      // Here we would ideally have actual correction logic
-      // For now, we'll just create a simple simulated correction
       const simpleCorrection = simulateGrammarCorrection(transcript);
       setCorrectedSentence(simpleCorrection);
-      
+
       const response = await processUserResponse(transcript);
-      
-      // Speak only the next question
+
+      // Clear transcript after processing!
+      resetTranscript();
+
       if (response?.nextQuestion) {
         speakText(response.nextQuestion);
       }
     }
   };
   
-  // Simple function to simulate grammar correction
-  // In a real implementation, this would come from an API or more sophisticated logic
   const simulateGrammarCorrection = (text: string): string => {
-    // This is a very simplified simulation
-    // A real implementation would use proper NLP tools
     const commonErrors = [
       { error: /i am/i, correction: "I am" },
       { error: /dont/i, correction: "don't" },
@@ -122,38 +114,34 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return corrected;
   };
   
-  // Handle topic change with audio
   const handleTopicChangeWithAudio = async (value: string) => {
     const topicGreeting = await handleTopicChange(value);
     if (topicGreeting) {
       speakText(topicGreeting);
+      resetTranscript();
     }
     return topicGreeting;
   };
 
-  // Clear conversation and reinitialize
   const clearConversation = () => {
-    // Stop any ongoing speech
     stopSpeaking();
-    // Clear conversation history
     clearConversationHistory();
-    // Clear the sentence corrections
     setLastUserSentence('');
     setCorrectedSentence('');
-    // Reinitialize conversation
+    resetTranscript();
     initializeConversation();
   };
   
-  // Handle text submission
   const handleTextSubmit = async (text: string) => {
     setLastUserSentence(text);
-    // Simulate correction
     const simpleCorrection = simulateGrammarCorrection(text);
     setCorrectedSentence(simpleCorrection);
-    
+
     const response = await processUserResponse(text);
-    
-    // Speak only the next question
+
+    // Clear speech transcript after processing typed input as well (for consistency)
+    resetTranscript();
+
     if (response?.nextQuestion) {
       speakText(response.nextQuestion);
     }

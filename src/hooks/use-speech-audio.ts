@@ -9,6 +9,7 @@ interface SpeechAudioHook {
   handleStopRecording: () => void;
   speakText: (text: string) => void;
   stopSpeaking: () => void;
+  resetTranscript: () => void; // <-- Added
 }
 
 export const useSpeechAudio = (): SpeechAudioHook => {
@@ -87,6 +88,10 @@ export const useSpeechAudio = (): SpeechAudioHook => {
     }
   }, []);
 
+  const resetTranscript = useCallback(() => {
+    setTranscript('');
+  }, []);
+
   return {
     isListening,
     transcript,
@@ -94,6 +99,7 @@ export const useSpeechAudio = (): SpeechAudioHook => {
     handleStartRecording,
     handleStopRecording,
     speakText,
-    stopSpeaking
+    stopSpeaking,
+    resetTranscript
   };
 };

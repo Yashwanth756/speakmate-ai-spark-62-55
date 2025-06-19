@@ -11,7 +11,7 @@ export const ActivityLogSection = () => {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {activityLog.map((entry, index) => (
+          {activityLog().map((entry, index) => (
             <div key={index} className="flex justify-between items-center border-b pb-3 last:border-0">
               <div>
                 <div className="flex items-center gap-2">

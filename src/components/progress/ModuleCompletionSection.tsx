@@ -12,7 +12,7 @@ export const ModuleCompletionSection = () => {
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          {moduleCompletionData.map((item) => (
+          {moduleCompletionData().map((item) => (
             <div key={item.name} className="space-y-2">
               <div className="flex justify-between items-center">
                 <span className="font-medium">{item.name}</span>

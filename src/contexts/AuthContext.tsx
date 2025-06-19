@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-
+import { generateDailyData } from '@/data/progressData';
 export type UserRole = 'student' | 'teacher';
 
 export interface User {
@@ -81,7 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       body: JSON.stringify({ email, password })
     });
     const data = await response.json();
-    console.log(data)
+    // console.log(data)
     
     if (data.success) {
       const foundUser = {
@@ -102,6 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: data.role,
         loginTime: new Date().toISOString()
       }));
+      await generateDailyData(); // Fetch daily data on login
       return true;
     }
     

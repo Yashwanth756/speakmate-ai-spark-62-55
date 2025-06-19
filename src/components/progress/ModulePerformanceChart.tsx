@@ -12,12 +12,12 @@ export const ModulePerformanceChart = () => {
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={moduleCompletionData}>
+          <BarChart data={moduleCompletionData()}>
             <XAxis dataKey="name" />
             <YAxis />
             <Tooltip />
             <Bar dataKey="completion" name="Completion">
-              {moduleCompletionData.map((entry, index) => (
+              {moduleCompletionData().map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Bar>

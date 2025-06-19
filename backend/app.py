@@ -52,8 +52,9 @@ def login():
 @app.route('/getUserData', methods=['POST'])
 def get_user_data():
     data = request.get_json()
-    username = data.get('username')
-    user_data = collection.find_one({'_id': username})
+    username = data.get('email')
+    user_data = collection.find_one({'email': username})
+    print('Fetching user data for:', username)
     
     if user_data:
         return dumps(user_data) 

@@ -5,7 +5,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from "recharts";
 import { Button } from "@/components/ui/button";
 import { CalendarDays, TrendingUp, Clock } from "lucide-react";
-import { dailyData } from "@/data/progressData";
+import { loadDailyData } from "@/data/progressData";
 
 const chartConfig = {
   speaking: { label: "Speaking", color: "#9b87f5" },
@@ -22,7 +22,7 @@ export const DailyPerformanceChart = () => {
 
   const getFilteredData = () => {
     const days = timeRange === '7d' ? 7 : timeRange === '14d' ? 14 : 30;
-    return dailyData.slice(-days);
+    return loadDailyData().slice(-days);
   };
 
   const toggleModule = (module: string) => {

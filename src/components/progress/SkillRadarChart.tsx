@@ -12,7 +12,7 @@ export const SkillRadarChart = () => {
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
-          <RadarChart outerRadius={90} data={radarData}>
+          <RadarChart outerRadius={90} data={radarData()}>
             <PolarGrid />
             <PolarAngleAxis dataKey="skill" />
             <PolarRadiusAxis angle={30} domain={[0, 100]} />

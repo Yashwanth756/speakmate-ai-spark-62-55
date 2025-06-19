@@ -5,7 +5,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from "recharts";
 import { Button } from "@/components/ui/button";
 import { BarChart3, Calendar } from "lucide-react";
-import { dailyData } from "@/data/progressData";
+import { loadDailyData } from "@/data/progressData";
 
 const chartConfig = {
   current: { label: "This Week", color: "#9b87f5" },
@@ -17,8 +17,8 @@ export const ComparativeAnalysis = () => {
 
   const getComparativeData = () => {
     if (view === 'weekly') {
-      const thisWeek = dailyData.slice(-7);
-      const lastWeek = dailyData.slice(-14, -7);
+      const thisWeek = loadDailyData().slice(-7);
+      const lastWeek = loadDailyData().slice(-14, -7);
       
       const modules = ['speaking', 'pronunciation', 'vocabulary', 'grammar', 'story', 'reflex'];
       
@@ -35,8 +35,8 @@ export const ComparativeAnalysis = () => {
       });
     } else {
       // Monthly comparison (last 15 days vs previous 15 days)
-      const thisMonth = dailyData.slice(-15);
-      const lastMonth = dailyData.slice(-30, -15);
+      const thisMonth = loadDailyData().slice(-15);
+      const lastMonth = loadDailyData().slice(-30, -15);
       
       const modules = ['speaking', 'pronunciation', 'vocabulary', 'grammar', 'story', 'reflex'];
       

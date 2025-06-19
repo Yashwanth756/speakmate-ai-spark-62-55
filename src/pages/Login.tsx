@@ -43,6 +43,7 @@ const Login = () => {
     try {
       const success = await login(email, password, 'student');
       
+      
       if (success) {
         toast({
           title: "Welcome Back!",

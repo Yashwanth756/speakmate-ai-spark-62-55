@@ -72,17 +72,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string, role: UserRole): Promise<boolean> => {
     // Simulate API call
-    const foundUser = MOCK_USERS.find(u => u.email === email && u.role === role);
+    //const foundUser = MOCK_USERS.find(u => u.email === email && u.role === role);
+    const response = await fetch("http://localhost:5000/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await response.json();
+    console.log(data)
     
-    if (foundUser) {
+    if (data.success) {
+      const foundUser = {
+        id: data.id,
+        fullName: data.fullName,
+        email: data.email,
+        role: data.role,
+        classes: data.classes || [],
+        sections: data.sections || []
+      };
       setUser(foundUser);
       setIsAuthenticated(true);
       localStorage.setItem('echo_user', JSON.stringify(foundUser));
       localStorage.setItem('authToken', 'mock-token');
       localStorage.setItem('userSession', JSON.stringify({
-        email: foundUser.email,
-        name: foundUser.fullName,
-        role: foundUser.role,
+        email: data.email,
+        name: data.fullName,
+        role: data.role,
         loginTime: new Date().toISOString()
       }));
       return true;

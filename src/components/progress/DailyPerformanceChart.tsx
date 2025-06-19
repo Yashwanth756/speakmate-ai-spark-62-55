@@ -21,8 +21,13 @@ export const DailyPerformanceChart = () => {
   const [selectedModules, setSelectedModules] = useState<string[]>(['speaking', 'pronunciation', 'vocabulary']);
 
   const getFilteredData = () => {
-    const days = timeRange === '7d' ? 7 : timeRange === '14d' ? 14 : 30;
-    return loadDailyData().slice(-days);
+   if (timeRange === '7d') {
+      return loadDailyData().slice(0, 7).reverse();
+    }
+    if (timeRange === '14d') {
+      return loadDailyData().slice(0, 14).reverse();
+    }
+    return loadDailyData().slice(0, 30).reverse();
   };
 
   const toggleModule = (module: string) => {

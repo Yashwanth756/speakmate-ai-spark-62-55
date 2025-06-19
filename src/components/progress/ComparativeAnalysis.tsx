@@ -17,8 +17,8 @@ export const ComparativeAnalysis = () => {
 
   const getComparativeData = () => {
     if (view === 'weekly') {
-      const thisWeek = loadDailyData().slice(-7);
-      const lastWeek = loadDailyData().slice(-14, -7);
+      const thisWeek = loadDailyData().slice(0, 7).reverse();
+      const lastWeek = loadDailyData().slice(7, 14).reverse();
       
       const modules = ['speaking', 'pronunciation', 'vocabulary', 'grammar', 'story', 'reflex'];
       
@@ -35,8 +35,8 @@ export const ComparativeAnalysis = () => {
       });
     } else {
       // Monthly comparison (last 15 days vs previous 15 days)
-      const thisMonth = loadDailyData().slice(-15);
-      const lastMonth = loadDailyData().slice(-30, -15);
+      const thisMonth = loadDailyData().slice(0, 15).reverse();
+      const lastMonth = loadDailyData().slice(15, 30).reverse();
       
       const modules = ['speaking', 'pronunciation', 'vocabulary', 'grammar', 'story', 'reflex'];
       

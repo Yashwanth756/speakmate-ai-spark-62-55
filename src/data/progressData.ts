@@ -13,20 +13,15 @@ const getUserData = async () => {
         },
         body: JSON.stringify({ email })
       });
-  const data = await response.json();
+  data = await response.json();
+  console.log('Data fetched:', data, email);
+  await checkandUpdateData();
   return data;
 }
 let data;
 export const getData = async () => {
   data = await getUserData();
 }
-// data = await getData();
-// await getData()
-// console.log('Data fetched:', data);
-
-
-
-
 
 
 export const overallProgress = {
@@ -40,7 +35,7 @@ export const overallProgress = {
 
 export const generateDailyData = async() => {
   data = await getUserData();
-  console.log('Daily data fetched:', data['dailyData']);
+  // console.log('Daily data fetched:', data['dailyData']);
   return data['dailyData'];
 };
 
@@ -196,3 +191,113 @@ const generateRecommendations = (analytics, avgDailyTime) => {
   
   return recommendations;
 };
+ const getdailydata = () => {
+  const days = 30;
+  const today = new Date();
+  const data = [];
+  
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    
+    data.push({
+      date: date.toISOString().split('T')[0],
+      day: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      fullDate: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      speaking: Math.max(0, Math.min(100, 45 + Math.random() * 30 + i * 0.5)),
+      pronunciation: Math.max(0, Math.min(100, 60 + Math.random() * 25 + i * 0.6)),
+      vocabulary: Math.max(0, Math.min(100, 35 + Math.random() * 35 + i * 0.4)),
+      grammar: Math.max(0, Math.min(100, 40 + Math.random() * 40 + i * 0.5)),
+      story: Math.max(0, Math.min(100, 30 + Math.random() * 35 + i * 0.4)),
+      reflex: Math.max(0, Math.min(100, 25 + Math.random() * 25 + i * 0.3)),
+      totalTime: Math.floor(Math.random() * 60) + 30, // minutes spent
+      sessionsCompleted: Math.floor(Math.random() * 8) + 2,
+    });
+  }
+  
+  return data;
+};
+export async function checkandUpdateData() {
+  const currdate = new Date().toISOString().split('T')[0]
+  const lastDate = new Date(data['dailyData'][0]?.date).toISOString().split('T')[0];
+  // console.log(currdate,'\n', lastDate)
+  if (currdate !== lastDate) {
+    const currDayObj = {
+      date: currdate,
+      day: new Date(currdate).toLocaleDateString("en-US", { weekday: "short" }),
+      fullDate: new Date(currdate).toLocaleDateString("en-US", { month: "short", day: "2-digit" }),
+      totalTime: 0,
+      sessionsCompleted: 0,
+      speaking: 0,
+      pronunciation: 0,
+      vocabulary: 0,
+      grammar: 0,
+      story: 0,
+      reflex: 0
+    };
+    await handleDailyData(currDayObj);
+  }
+}
+
+
+export async function handleDailyData( currDayObj) {
+
+  const fields = ["speaking", "pronunciation", "vocabulary", "grammar", "story", "reflex"];
+  const currDate = new Date(currDayObj.date);
+  const lastDate = new Date(data['dailyData'][0]?.date);
+
+  const getDateDiff = (d1, d2) => Math.floor((d1 - d2) / (1000 * 60 * 60 * 24));
+
+  // CASE 1
+  if (currDayObj.date === data['dailyData'][0]?.date) {
+    const existing = data['dailyData'][0];
+
+    const averagedDay = { ...existing };
+    fields.forEach(field => {
+      averagedDay[field] = Math.floor((existing[field] + currDayObj[field]) / 2);
+    });
+    averagedDay.totalTime = existing.totalTime + currDayObj.totalTime;
+    averagedDay.sessionsCompleted = existing.sessionsCompleted + currDayObj.sessionsCompleted;
+
+    data['dailyData'][0] = averagedDay;
+    data['dailyData'] = data['dailyData'].slice(0, 30);
+
+
+    console.log(currDayObj, data['dailyData'][0]);
+    let response = await updateDailyData(data['dailyData']);
+    console.log("Updated daily data:", response);
+    return;
+  }
+
+    // CASE 2
+  const diffDays = getDateDiff(currDate, lastDate);
+  const maxFillDays = Math.min(diffDays - 1, 29);  
+
+  for (let i = maxFillDays; i >= 1; i--) {
+    const missingDate = new Date(currDate);
+    missingDate.setDate(currDate.getDate() - i);
+
+    const isoDate = missingDate.toISOString().split("T")[0];
+    const dayName = missingDate.toLocaleDateString("en-US", { weekday: "short" });
+    const fullDate = missingDate.toLocaleDateString("en-US", { month: "short", day: "2-digit" });
+
+    const zeroObj = {
+      date: isoDate,
+      day: dayName,
+      fullDate: fullDate,
+      totalTime: 0,
+      sessionsCompleted: 0
+    };
+    fields.forEach(f => zeroObj[f] = 0);
+    data['dailyData'].unshift(zeroObj);
+    // console.log('in loop')
+  }
+
+  data['dailyData'].unshift(currDayObj);
+  data['dailyData'] = data['dailyData'].slice(0, 30);
+
+
+  let response = await updateDailyData(data['dailyData']);
+  console.log("Updated daily data:", response);
+}
+

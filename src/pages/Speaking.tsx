@@ -10,7 +10,7 @@ import { ResponsiveContainer, RadarChart as RChart, PolarGrid, PolarAngleAxis, P
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { AlertCircle } from "lucide-react";
-
+import { handleDailyData } from "@/data/progressData";
 // Sample topics for the speaking practice select dropdown
 const sampleTopics = [
   "Daily Life",
@@ -297,6 +297,23 @@ Respond as clean JSON ONLY, using keys:
         toast.error("Could not parse the AI response. Please try again.");
         feedbackObj = { raw: text, parsing_error: true };
       }
+       const currDay = {
+        date: new Date().toISOString().split('T')[0], // Current date in YYYY-MM-DD format
+        day: new Date().toLocaleDateString("en-US", { weekday: "short" }),
+        fullDate: new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit" }),
+        speaking: feedbackObj.scores?.fluency?.score || 0,
+        pronunciation: feedbackObj.scores?.pronunciation?.score || 0,
+        vocabulary: feedbackObj.scores?.vocabulary?.score || 0,
+        grammar: feedbackObj.scores?.grammar?.score || 0,
+        story: 0,
+        reflex: 0,
+        totalTime: 0,
+        sessionsCompleted: 0
+      };
+      // console.log('starting update', dailyData())
+      await handleDailyData(currDay);
+      // console.log("Updated daily data:", dailyData());
+      
       
       setFeedback(feedbackObj);
     } catch (e: any) {

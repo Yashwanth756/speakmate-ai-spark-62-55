@@ -68,7 +68,7 @@ const Login = () => {
     setIsLoading(false);
   };
 
-  const handleGuestLogin = () => {
+  const handleGuestLogin = async() => {
     localStorage.setItem('authToken', 'guest-token');
     localStorage.setItem('userSession', JSON.stringify({
       email: 'guest@echo.ai',

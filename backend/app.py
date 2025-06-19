@@ -74,7 +74,7 @@ def update_daily_data():
         return jsonify({'error': 'Username and dailyData are required'}), 400
 
     result = collection.update_one(
-        { "_id": username },
+        { "email": username },
         { "$set": { "dailyData": daily_data } },
         upsert=True
     )

@@ -2,7 +2,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { generateDailyData } from '@/data/progressData';
 export type UserRole = 'student' | 'teacher';
-
 export interface User {
   id: string;
   fullName: string;
@@ -81,6 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       body: JSON.stringify({ email, password })
     });
     const data = await response.json();
+    // await checkandUpdateData()
     // console.log(data)
     
     if (data.success) {

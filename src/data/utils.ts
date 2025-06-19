@@ -21,8 +21,8 @@ export function getRadarData(dailyData) {
   return radarData;
 }
 
-export const updateDailyData = async (dailyData) => {
-  console.log("Updating daily data:", dailyData);
+export const updateDailyData = async(dailyData) => {
+  // console.log("Updating daily data:", dailyData);
   const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
   const username = userSession.email || "Guest";
   console.log(username)

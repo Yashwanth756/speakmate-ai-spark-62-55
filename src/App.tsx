@@ -30,7 +30,7 @@ import QuickQuiz from "./pages/QuickQuiz";
 const queryClient = new QueryClient();
 
 // Protected Route component
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+const ProtectedRoute =  ({ children }: { children: React.ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -52,7 +52,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
-
+// await checkandUpdateData()
+  // checkandUpdateData()
   return <>{children}</>;
 };
 

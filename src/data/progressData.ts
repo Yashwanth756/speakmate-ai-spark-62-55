@@ -43,6 +43,9 @@ export const wordscrambleData = () => {
   return data['wordscramble'] || [];
 }
 
+export const vocabularyArchadeData = () =>{
+  return data['vocabularyArchade']
+}
 
 
 

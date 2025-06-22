@@ -5,196 +5,70 @@ import { Book, ArrowRight, Star, HelpCircle, Award } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { LevelSelector } from "@/components/vocabulary/LevelSelector";
+import { vocabularyArchadeData } from "@/data/progressData";
+let vocabularyArchade = vocabularyArchadeData();
 
-// Word data for different levels
 const vocabularyData = {
-  beginner: [
-    {
-      word: "happy",
-      definition: "Feeling or showing pleasure or contentment",
-      incorrectDefinitions: [
-        "Feeling sad or upset",
-        "Moving very quickly",
-        "Being very loud"
-      ],
-      partOfSpeech: "adjective",
-      example: "The children were happy playing in the park.",
-      hint: "How you feel on your birthday"
-    },
-    {
-      word: "big",
-      definition: "Of considerable size, extent, or intensity",
-      incorrectDefinitions: [
-        "Very small in size",
-        "Moving slowly",
-        "Having a bright color"
-      ],
-      partOfSpeech: "adjective",
-      example: "That's a big house on the corner.",
-      hint: "The opposite of small"
-    },
-    {
-      word: "jump",
-      definition: "Push oneself off a surface into the air",
-      incorrectDefinitions: [
-        "To move very slowly",
-        "To fall asleep quickly",
-        "To speak very loudly"
-      ],
-      partOfSpeech: "verb",
-      example: "The cat can jump very high.",
-      hint: "What kangaroos are known for doing"
-    },
-    {
-      word: "read",
-      definition: "Look at and understand the meaning of written words",
-      incorrectDefinitions: [
-        "To make a loud noise",
-        "To sleep for a long time",
-        "To run very quickly"
-      ],
-      partOfSpeech: "verb",
-      example: "I like to read books before bed.",
-      hint: "What you do with books"
-    },
-    {
-      word: "run",
-      definition: "Move at a speed faster than walking",
-      incorrectDefinitions: [
-        "To sit very still",
-        "To speak very softly",
-        "To fly in the sky"
-      ],
-      partOfSpeech: "verb",
-      example: "The children run in the playground.",
-      hint: "Moving your legs quickly"
-    }
-  ],
-  intermediate: [
-    {
-      word: "analyze",
-      definition: "Examine methodically and in detail",
-      incorrectDefinitions: [
-        "To forget completely",
-        "To build something quickly",
-        "To make something dirty"
-      ],
-      partOfSpeech: "verb",
-      example: "Scientists analyze data from their experiments.",
-      hint: "Breaking something down to understand it better"
-    },
-    {
-      word: "detect",
-      definition: "Discover or identify the presence of something",
-      incorrectDefinitions: [
-        "To hide something completely",
-        "To break something into pieces",
-        "To swim underwater"
-      ],
-      partOfSpeech: "verb",
-      example: "The dog can detect scents that humans can't.",
-      hint: "What detectives do when solving mysteries"
-    },
-    {
-      word: "conclude",
-      definition: "Bring or come to an end or close",
-      incorrectDefinitions: [
-        "To start something new",
-        "To break something apart",
-        "To run away quickly"
-      ],
-      partOfSpeech: "verb",
-      example: "We can conclude that the experiment was successful.",
-      hint: "Reaching the end or a final decision"
-    },
-    {
-      word: "swift",
-      definition: "Happening quickly or promptly",
-      incorrectDefinitions: [
-        "Moving very slowly",
-        "Extremely heavy",
-        "Very colorful"
-      ],
-      partOfSpeech: "adjective",
-      example: "The swift response from emergency services saved lives.",
-      hint: "Similar to 'fast' or 'quick'"
-    },
-    {
-      word: "abundant",
-      definition: "Existing or available in large quantities",
-      incorrectDefinitions: [
-        "Very rare or scarce",
-        "Extremely small",
-        "Completely empty"
-      ],
-      partOfSpeech: "adjective",
-      example: "The forest has abundant wildlife.",
-      hint: "When you have more than enough of something"
-    }
-  ],
-  advanced: [
-    {
-      word: "ephemeral",
-      definition: "Lasting for a very short time",
-      incorrectDefinitions: [
-        "Extremely heavy or dense",
-        "Permanent and unchanging",
-        "Spreading across a wide area"
-      ],
-      partOfSpeech: "adjective",
-      example: "The ephemeral beauty of cherry blossoms lasts only a week.",
-      hint: "Think of things that don't last long, like bubbles"
-    },
-    {
-      word: "amalgamate",
-      definition: "Combine or unite to form one organization or structure",
-      incorrectDefinitions: [
-        "To completely separate",
-        "To destroy entirely",
-        "To speak in a foreign language"
-      ],
-      partOfSpeech: "verb",
-      example: "The two companies decided to amalgamate.",
-      hint: "Bringing different things together"
-    },
-    {
-      word: "verbose",
-      definition: "Using or containing more words than needed",
-      incorrectDefinitions: [
-        "Speaking very quietly",
-        "Using very few words",
-        "Writing with poor grammar"
-      ],
-      partOfSpeech: "adjective",
-      example: "The professor's verbose lectures often lasted too long.",
-      hint: "When someone talks too much or uses too many words"
-    },
-    {
-      word: "ubiquitous",
-      definition: "Present, appearing, or found everywhere",
-      incorrectDefinitions: [
-        "Extremely rare",
-        "Found only in museums",
-        "Visible only at night"
-      ],
-      partOfSpeech: "adjective",
-      example: "Smartphones have become ubiquitous in modern society.",
-      hint: "Think of something that's everywhere you look"
-    },
-    {
-      word: "cognizant",
-      definition: "Having knowledge or awareness",
-      incorrectDefinitions: [
-        "Being completely unaware",
-        "Feeling extremely tired",
-        "Growing very quickly"
-      ],
-      partOfSpeech: "adjective",
-      example: "She was cognizant of the risks involved.",
-      hint: "Being aware or knowing about something"
-    }
-  ]
+  beginner: vocabularyArchade['beginner']['wordDetails'],
+  intermediate: vocabularyArchade['intermediate']['wordDetails'],
+  advanced: vocabularyArchade['advanced']['wordDetails']
 };
+
+
+async function updateScoreAndSolve(difficulty, word) {
+  console.log(difficulty, word)
+  
+  const level = vocabularyArchade[difficulty];
+  const wordObj = level.wordDetails.find(w => w.word === word);
+
+  if (!wordObj) {
+    console.warn(`Word "${word}" not found in ${difficulty} level.`);
+    return vocabularyArchade;
+  }
+
+  if (!wordObj.isSolved) {
+    wordObj.isSolved = true;
+    level.score += 1;
+    const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
+    const email = userSession.email || "a@gmail.com";
+    try {
+      await fetch("http://localhost:5000/updateVocabularyArchadeScore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, difficulty, word })
+      });
+    } catch (error) {
+      console.error("Failed to update score on server:", error);
+    }
+  }
+}
+
+async function updateBadge(badge, level) {
+  console.log(badge, level, vocabularyArchade[level]['badge'])
+  if(vocabularyArchade[level]['badge'] == ""){
+    try {
+      const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
+      const email = userSession.email || "a@gmail.com";
+      const response = await fetch("http://localhost:5000/updateVocabularyBadge", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ email, badge, level })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        console.log("Badge updated successfully");
+      } else {
+        console.error("Badge update failed:", result.message);
+      }
+    } catch (error) {
+      console.error("Error while updating badge:", error);
+    }
+  }
+}
+
 
 // Types for our vocabulary game
 interface WordData {
@@ -235,8 +109,8 @@ const VocabularyArcade: React.FC = () => {
   const startGame = (selectedLevel: "beginner" | "intermediate" | "advanced") => {
     setLevel(selectedLevel);
     setGameStarted(true);
-    setCurrentWordIndex(0);
-    setScore(0);
+    setCurrentWordIndex(vocabularyArchade[level]['currentWordIndex']);
+    setScore(vocabularyArchade[level]['score']);
     setRoundCompleted(false);
     setBadge("");
     loadWord(0, selectedLevel);
@@ -297,7 +171,9 @@ const VocabularyArcade: React.FC = () => {
     
     if (options[selectedOption].isCorrect) {
       // Correct answer
-      setScore(prev => prev + 1);
+      // setScore(prev => prev + 1);
+      updateScoreAndSolve(level, currentWord.word)
+      setScore(vocabularyArchade[level]['score'])
       
       toast({
         title: "Correct! 🎉",
@@ -363,6 +239,8 @@ const VocabularyArcade: React.FC = () => {
     }
     
     setBadge(newBadge);
+    updateBadge(newBadge, level)
+
     
     toast({
       title: "Round Complete! 🎊",

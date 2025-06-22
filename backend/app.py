@@ -120,6 +120,55 @@ def mark_solved_and_update_score():
         "modified": result.modified_count
     })
 
+@app.route("/updateVocabularyArchadeScore", methods=["POST"])
+def update_vocabulary_archade_score():
+    data = request.json
+    email = data["email"]
+    difficulty = data["difficulty"]
+    word = data["word"]
+
+    result = collection.update_one(
+        {
+            "email": email,
+            f"vocabularyArchade.{difficulty}.wordDetails.word": word
+        },
+        {
+            "$set": {
+                f"vocabularyArchade.{difficulty}.wordDetails.$.isSolved": True
+            },
+            "$inc": {
+                f"vocabularyArchade.{difficulty}.score": 1
+            }
+        }
+    )
+
+    if result.modified_count > 0:
+        return jsonify({ "success": True })
+    else:
+        return jsonify({ "success": False, "message": "Word not found or already solved" }), 400
+
+
+@app.route("/updateVocabularyBadge", methods=["POST"])
+def update_vocabulary_badge():
+    data = request.json
+    email = data.get("email")
+    badge = data.get("badge")
+    level = data.get("level")
+
+    if not all([email, badge, level]):
+        return jsonify({ "success": False, "message": "Missing required fields" }), 400
+
+    result = collection.update_one(
+        { "email": email },
+        { "$set": { f"vocabularyArchade.{level}.badge": badge } }
+    )
+
+    if result.modified_count > 0:
+        return jsonify({ "success": True })
+    else:
+        return jsonify({ "success": False, "message": "User not found or badge not updated" }), 400
+
+
 @app.route('/updateDailyData', methods=['POST'])
 def update_daily_data():
     data = request.get_json()

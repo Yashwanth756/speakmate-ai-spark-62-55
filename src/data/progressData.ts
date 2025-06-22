@@ -14,13 +14,13 @@ const getUserData = async () => {
         body: JSON.stringify({ email })
       });
   data = await response.json();
-  console.log('Data fetched:', data, email);
   await checkandUpdateData();
   return data;
 }
 let data;
 export const getData = async () => {
   data = await getUserData();
+  console.log(data['wordscramble'])
 }
 
 
@@ -38,6 +38,13 @@ export const generateDailyData = async() => {
   // console.log('Daily data fetched:', data['dailyData']);
   return data['dailyData'];
 };
+
+export const wordscrambleData = () => {
+  return data['wordscramble'] || [];
+}
+
+
+
 
 export const dailyData =  await generateDailyData();
 export const loadDailyData = ()=>{

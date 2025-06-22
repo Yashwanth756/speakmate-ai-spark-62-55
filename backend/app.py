@@ -33,6 +33,8 @@ def insert_activity_log():
     print('Activity log inserted/updated:', result)
     return jsonify({'status': 'Activity log inserted/updated'})
 
+
+
 # Login Route
 @app.route('/login', methods=['POST'])
 def login():
@@ -60,6 +62,63 @@ def get_user_data():
         return dumps(user_data) 
     else:
         return jsonify({'error': 'User not found'}), 404
+    
+@app.route("/updatehints", methods=["POST"])
+def update_hints():
+    data = request.json
+    email = data.get("email")
+    difficulty = data.get("difficulty")
+    word = data.get("word")
+
+    if not all([email, difficulty, word]):
+        return jsonify({"error": "Missing required fields"}), 400
+
+    field_path = f"wordscramble.{difficulty}.$[entry].1"
+
+    result = collection.update_one(
+        { "email": email },
+        { "$inc": { field_path: 1 } },
+        array_filters=[ { "entry.0": word } ]
+    )
+    # print(result)
+
+    return jsonify({
+        "matched": result.matched_count,
+        "modified": result.modified_count
+    })
+
+
+@app.route("/increment-score", methods=["POST"])
+def mark_solved_and_update_score():
+    data = request.json
+    email = data.get("email")
+    difficulty = data.get("difficulty")  # "easy", "medium", "hard"
+    word = data.get("word")
+
+    if not all([email, difficulty, word]):
+        return jsonify({ "error": "Missing fields" }), 400
+
+    is_path = f"wordscramble.{difficulty}.$[entry].2"
+    score_path = f"wordscramble.{difficulty}score.score"
+
+    # Update: set is = true and increment score
+    result = collection.update_one(
+        { "email": email },
+        {
+            "$set": { is_path: True },
+            "$inc": { score_path: 1 }
+        },
+        array_filters=[{ "entry.0": word, "entry.2": False }]  # only if not already solved
+    )
+
+    if result.modified_count == 0:
+        return jsonify({ "message": "Already solved or word not found" })
+
+    return jsonify({
+        "message": "Word marked as solved and score incremented",
+        "matched": result.matched_count,
+        "modified": result.modified_count
+    })
 
 @app.route('/updateDailyData', methods=['POST'])
 def update_daily_data():

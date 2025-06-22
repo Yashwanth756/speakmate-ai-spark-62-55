@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { getDifficultyWordList, getRandomWordByDifficulty, scrambleWord } from "@/lib/word-utils";
+import { getDifficultyWordList, getRandomWordByDifficulty, scrambleWord, getHintsForWord,updateScore, updateHintsUsed, countCompletedWords,markWordAsSolved,updateHints } from "@/lib/word-utils";
 import { HelpCircle, RotateCcw, Check, Star, Trophy, Volume2, VolumeX, MoveHorizontal } from "lucide-react";
 import { LetterTile } from "./LetterTile";
 import Sortable from 'sortablejs';
@@ -154,13 +154,13 @@ const WordScrambleGame = () => {
     setScrambledWord(scrambled);
     setCurrentArrangement(scrambled.split(''));
     setPotArrangement(Array(newWord.length).fill(null));
-    setHintsUsed(0);
+    setHintsUsed(getHintsForWord(difficulty, newWord));
+    setPuzzlesSolved(countCompletedWords(difficulty))
     setHintedIndexes([]);
     setIsCorrect(null);
     setShowInvalidAnimation(false);
     setShowHelpAnimation(true);
     
-    console.log("New word:", newWord); // For debugging only
     setIsLoading(false);
   };
 
@@ -216,6 +216,8 @@ const WordScrambleGame = () => {
       
       // Update hint tracking
       setHintsUsed(prev => prev + 1);
+      updateHints(difficulty, originalWord)
+      updateHintsUsed(difficulty, originalWord)
       setHintedIndexes(prev => [...prev, hintIndex]);
       
       toast({
@@ -242,7 +244,9 @@ const WordScrambleGame = () => {
     if (currentGuess === originalWord) {
       setIsCorrect(true);
       setPuzzlesSolved(prev => prev + 1);
-      
+      // markWordAsSolved(difficulty, originalWord)
+      updateScore(difficulty, originalWord)
+  
       toast({
         title: "Correct!",
         description: "You've unscrambled the word successfully!"

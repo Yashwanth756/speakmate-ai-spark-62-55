@@ -2,26 +2,123 @@
 import { commonFiveLetterWords } from './word-lists/common-words';
 import { validFiveLetterWords } from './word-lists/valid-words';
 import { Difficulty } from '@/components/word-puzzle/WordScrambleGame';
-
+import { wordscrambleData } from '@/data/progressData';
 // List of easy words (4-5 letters)
-const easyWords = [
-  "book", "tree", "star", "lamp", "cake", "bird", "fish", "door", "shoe", "ball",
-  "cat", "dog", "hat", "sun", "moon", "rain", "snow", "food", "milk", "jump",
-  "toy", "bear", "duck", "frog", "ship", "boat", "kite", "hand", "foot", "nose",
-  "ear", "eye", "leaf", "seed", "rock", "sand", "fire", "wind", "home", "road",
-  "car", "bike", "game", "song", "bell", "gift", "bed", "desk", "pen", "bag"
-];
 
-// List of medium-difficulty words (6-7 letters)
-const mediumWords = [
-  "monkey", "rocket", "garden", "dinner", "summer", "winter", "autumn", "pencil", "laptop", "castle",
-  "island", "sunset", "palace", "basket", "circus", "candle", "farmer", "jacket", "bottle", "button",
-  "flower", "banana", "orange", "camera", "puzzle", "bundle", "carpet", "planet", "soccer", "cookie",
-  "guitar", "secret", "jungle", "mirror", "window", "ladder", "pillow", "ticket", "wallet", "doctor",
-  "rabbit", "bamboo", "walker", "turkey", "sunset", "magnet", "mirror", "spider", "hammer", "silver"
-];
+let wordscramble = wordscrambleData() 
+const easyWords = wordscramble.easy.map(entry => entry[0]);
+const mediumWords = wordscramble.medium.map(entry => entry[0]);
+const hardWords = wordscramble.hard.map(entry => entry[0]);
 
-// Get a random word from the list of common words
+
+export const  getHintsForWord=(level, word)=> {
+  if (!wordscramble[level]) return null;
+
+  const entry = wordscramble[level].find(([w]) => w === word);
+  return entry ? entry[1] : null; // returns hint count or null if not found
+}
+
+export const updateHints = async(difficulty: string, word: string) =>{
+  const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
+  const email = userSession.email || "a@gmail.com";
+  const response = await fetch("http://localhost:5000/updatehints", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ email, difficulty, word })
+  });
+
+  const result = await response.json();
+  console.log("Update result:", result);
+}
+
+export const updateHintsUsed=(difficulty, word)=> {
+  const levelWords = wordscramble[difficulty];
+
+  if (!levelWords) {
+    console.error("Invalid difficulty level");
+    return;
+  }
+
+  const entry = levelWords.find(w => w[0] === word);
+
+  if (entry) {
+    entry[1] += 1; // Increment hintsUsed
+  } else {
+    console.warn(`Word "${word}" not found in ${difficulty} level`);
+  }
+}
+
+export const countCompletedWords=(difficulty)=> {
+  const levelWords = wordscramble[difficulty];
+
+  if (!levelWords) {
+    console.error("Invalid difficulty level");
+    return 0;
+  }
+
+  return levelWords.filter(entry => entry[2] === true).length;
+}
+
+export const markWordAsSolved=(difficulty, word)=> {
+  const levelWords = wordscramble[difficulty];
+
+  if (!levelWords) {
+    console.error("Invalid difficulty level");
+    return;
+  }
+
+  const entry = levelWords.find(entry => entry[0] === word);
+
+  if (entry) {
+    entry[2] = true;
+  } else {
+    console.warn(`Word "${word}" not found in ${difficulty} level`);
+  }
+}
+
+export const updateScore=async(difficulty, word)=>{
+  const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
+  const email = userSession.email || "a@gmail.com";
+
+  const levelWords = wordscramble[difficulty];
+  const entry = levelWords.find(([w]) => w === word);
+  if (!entry) {
+    console.warn(`Word "${word}" not found in ${difficulty}`);
+    return;
+  }
+
+  const isSolved = entry[2];
+  entry[2] = true
+  console.log(wordscramble)
+
+  if (isSolved) {
+    console.log(`Word "${word}" is already solved.`);
+    return;
+  }
+
+  // Send request to Flask to increment score
+  try {
+    const response = await fetch("http://localhost:5000/increment-score", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        email,
+        difficulty,
+        word
+      })
+    });
+
+    const result = await response.json();
+    console.log("Server response:", result);
+  } catch (error) {
+    console.error("Failed to update score:", error);
+  }
+}
+
 export const getRandomWord = (): string => {
   const index = Math.floor(Math.random() * commonFiveLetterWords.length);
   return commonFiveLetterWords[index];
@@ -46,10 +143,15 @@ export const getDifficultyWordList = (difficulty: Difficulty): string[] => {
   }
 }
 
-// Get a random word based on difficulty level
+// Get a random word based on difficulty level  updating current word index
 export const getRandomWordByDifficulty = (difficulty: Difficulty): string => {
   const wordList = getDifficultyWordList(difficulty);
-  const index = Math.floor(Math.random() * wordList.length);
+  let index = wordscramble[difficulty+"score"].currWordIndex;
+  if (index >= wordscramble[difficulty].length){
+    index = 0;
+    wordscramble[difficulty+"score"].currWordIndex = 0;
+  }
+  wordscramble[difficulty+"score"].currWordIndex++;
   return wordList[index];
 }
 

@@ -168,7 +168,34 @@ def update_vocabulary_badge():
     else:
         return jsonify({ "success": False, "message": "User not found or badge not updated" }), 400
 
+@app.route('/updateWordsearchScore', methods=['POST'])
+def update_wordsearch_score():
+    data = request.json
+    email = data.get('email')
+    level = data.get('level')
+    score = data.get('score')
+    word = data.get('word')
 
+    if not all([email, level, word, score is not None]):
+        return jsonify({"message": "Missing fields"}), 400
+
+    # Set score and mark word as solved
+    result = collection.update_one(
+        { "email": email, f"wordsearch.{level}.words.word": word.upper() },
+        {
+            "$set": {
+                f"wordsearch.{level}.score": score,
+                f"wordsearch.{level}.words.$.solved": True
+            }
+        }
+    )
+    print(result)
+    if result.modified_count > 0:
+        return jsonify({"message": "Score and word updated successfully"})
+    else:
+        return jsonify({"message": "No update made — word may not exist"}), 404
+    
+    
 @app.route('/updateDailyData', methods=['POST'])
 def update_daily_data():
     data = request.get_json()

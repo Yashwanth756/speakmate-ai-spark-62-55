@@ -6,6 +6,51 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { Clock, Trophy, Lightbulb, RotateCcw, Star, Target } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { wordsearchData } from '@/data/progressData';
+let wordsearch = wordsearchData()
+
+function getSolvedWords(level: 'beginner' | 'intermediate' | 'advanced'): Set<string> {
+  const solvedWords = new Set<string>();
+
+  if (wordsearch[level] && Array.isArray(wordsearch[level].words)) {
+    for (const wordObj of wordsearch[level].words) {
+      if (wordObj.solved) {
+        solvedWords.add(wordObj.word);
+      }
+    }
+  }
+
+  return solvedWords;
+}
+function markWordAsSolved(
+  level: 'beginner' | 'intermediate' | 'advanced',
+  word: string
+): void {
+  const levelData = wordsearch[level];
+  if (!levelData || !Array.isArray(levelData.words)) return;
+
+  const targetWord = levelData.words.find(
+    (w: any) => w.word.toUpperCase() === word.toUpperCase()
+  );
+
+  if (targetWord && !targetWord.solved) {
+    targetWord.solved = true;
+    levelData.noOfWordsSolved = (levelData.noOfWordsSolved || 0) + 1;
+  }
+}
+
+async function updateScoreOnServer(level: 'beginner' | 'intermediate' | 'advanced', score: number, word) {
+  const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
+  const email = userSession.email || "a@gmail.com";
+  const response = await fetch('http://localhost:5000/updateWordsearchScore', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, level, score, word })
+  });
+
+  const result = await response.json();
+  console.log(result.message); // "Score updated successfully" or error
+}
 
 export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced';
 
@@ -191,8 +236,8 @@ export const WordSearchGame: React.FC<WordSearchGameProps> = ({
     const { grid: newGrid, wordPlacements } = generateGrid();
     setGrid(newGrid);
     setWords(wordPlacements);
-    setFoundWords(new Set());
-    setScore(0);
+    setFoundWords(getSolvedWords(difficulty));
+    setScore(wordsearch[difficulty]['score']);
     setTimer(0);
     setGameCompleted(false);
     setSelectedCells([]);
@@ -259,9 +304,13 @@ export const WordSearchGame: React.FC<WordSearchGameProps> = ({
       const newFoundWords = new Set(foundWords);
       newFoundWords.add(foundWord.word);
       setFoundWords(newFoundWords);
+      markWordAsSolved(difficulty, selectedWord)
+      // console.log(wordsearch['beginner'])
+      // console.log(foundWord.word)
       
       const points = difficulty === 'beginner' ? 10 : difficulty === 'intermediate' ? 15 : 20;
       setScore(prev => prev + points);
+      updateScoreOnServer(difficulty, score, selectedWord)
       
       confetti({
         particleCount: 50,

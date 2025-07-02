@@ -102,6 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: data.role,
         loginTime: new Date().toISOString()
       }));
+      if (role === 'student') 
       await generateDailyData(); // Fetch daily data on login
       return true;
     }

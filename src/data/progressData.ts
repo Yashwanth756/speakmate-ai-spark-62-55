@@ -5,7 +5,10 @@ import {getWeeklyData, getRadarData, updateDailyData} from "./utils";
 
 const getUserData = async () => {
   const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
-  const email = userSession.email || "a@gmail.com";
+  let email;
+  // if (userSession.role == 'student')
+  email = userSession.email || "test4@gmail.com";
+  // else email = userSession.email || "teacher@echo.ai"
   const response = await fetch("http://localhost:5000/getUserData", {
         method: "POST",
         headers: {

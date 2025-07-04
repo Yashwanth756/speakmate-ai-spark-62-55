@@ -492,9 +492,9 @@ const StudentDashboard = () => {
                             {progress && <p className="text-sm text-muted-foreground mt-1">Best: {progress.bestScore}%</p>}
                           </div>
                         </div>
-                        {puzzle.metadata?.words && (
+                        {puzzle.metadata?.puzzleWords && (
                           <div className="flex flex-wrap gap-2">
-                            {puzzle.metadata.words.map((word, index) => (
+                            {puzzle.metadata.puzzleWords.map((word, index) => (
                               <Badge key={index} variant="secondary">{word}</Badge>
                             ))}
                           </div>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/app-sidebar";
@@ -11,77 +12,27 @@ import { SpellCheck } from "@/components/vocabulary/SpellCheck";
 import { VocabularyChart } from "@/components/vocabulary/VocabularyChart";
 import { DailyChallenge } from "@/components/vocabulary/DailyChallenge";
 import { LevelSelector } from "@/components/vocabulary/LevelSelector";
-
-// Mock dictionary API - in a real app, this would use an actual API
-const mockDictionary = [
-  {
-    word: "ephemeral",
-    meaning: "Lasting for a very short time; transitory; momentary",
-    partOfSpeech: "adjective",
-    phonetic: "/ɪˈfɛm(ə)rəl/",
-    example: "The ephemeral beauty of a sunset",
-    synonyms: ["fleeting", "transient", "momentary", "short-lived"],
-    antonyms: ["permanent", "enduring", "everlasting"],
-    memoryTip: "Think of a butterfly's lifespan - beautiful but brief"
-  },
-  {
-    word: "ubiquitous",
-    meaning: "Present, appearing, or found everywhere",
-    partOfSpeech: "adjective",
-    phonetic: "/juːˈbɪkwɪtəs/",
-    example: "Mobile phones are now ubiquitous in modern society",
-    synonyms: ["omnipresent", "ever-present", "pervasive", "universal"],
-    antonyms: ["rare", "scarce", "uncommon"],
-    memoryTip: "Think of 'ubi' (where in Latin) + 'quitous' - it's everywhere you look!"
-  },
-  {
-    word: "serendipity",
-    meaning: "The occurrence of events by chance in a happy or beneficial way",
-    partOfSpeech: "noun",
-    phonetic: "/ˌsɛr(ə)nˈdɪpɪti/",
-    example: "The serendipity of meeting an old friend in a foreign country",
-    synonyms: ["chance", "fortune", "luck", "providence"],
-    antonyms: ["misfortune", "design", "plan"],
-    memoryTip: "Think of it as a 'serene dip' into good luck!"
-  },
-  {
-    word: "eloquent",
-    meaning: "Fluent or persuasive in speaking or writing",
-    partOfSpeech: "adjective",
-    phonetic: "/ˈɛləkwənt/",
-    example: "Her eloquent speech moved the entire audience",
-    synonyms: ["articulate", "fluent", "persuasive", "expressive"],
-    antonyms: ["inarticulate", "hesitant", "awkward"],
-    memoryTip: "Think 'elo' + 'quent' - someone who speaks with elegant quality"
-  },
-  {
-    word: "pragmatic",
-    meaning: "Dealing with things sensibly and realistically",
-    partOfSpeech: "adjective",
-    phonetic: "/præɡˈmætɪk/",
-    example: "We need a pragmatic approach to solving this problem",
-    synonyms: ["practical", "realistic", "sensible", "rational"],
-    antonyms: ["idealistic", "impractical", "unrealistic"],
-    memoryTip: "Think of a 'program' that works - it's practical and gets things done!"
-  }
-];
-
-const vocabularyLevels = {
-  beginner: ["simple", "happy", "quick", "small", "large"],
-  intermediate: ["eloquent", "pragmatic", "serendipity"],
-  advanced: ["ephemeral", "ubiquitous"]
-};
+import { useDailyVocabulary } from "@/hooks/use-daily-vocabulary";
 
 const VocabularyTrainer: React.FC = () => {
   const { toast } = useToast();
   const [currentLevel, setCurrentLevel] = useState<"beginner" | "intermediate" | "advanced">("intermediate");
-  const [currentWord, setCurrentWord] = useState(mockDictionary[0]);
   const [dailyProgress, setDailyProgress] = useState(2);
-
-  // FIX: Re-add isSpellMode state management
   const [isSpellMode, setIsSpellMode] = useState(false);
 
   const { transcript, resetTranscript, startListening, stopListening, isListening, supported } = useSpeechRecognition();
+  
+  const {
+    vocabularyData,
+    loading,
+    error,
+    currentWord,
+    currentWordIndex,
+    totalWords,
+    loadVocabulary,
+    nextWord,
+    getRandomWord
+  } = useDailyVocabulary();
   
   const [learnedWords, setLearnedWords] = useState<{
     adjectives: number;
@@ -97,26 +48,28 @@ const VocabularyTrainer: React.FC = () => {
     other: 1
   });
   
+  // Load vocabulary when component mounts or level changes
+  useEffect(() => {
+    loadVocabulary(currentLevel);
+  }, [currentLevel, loadVocabulary]);
+  
   useEffect(() => {
     if (transcript && !isListening) {
       checkPronunciation(transcript);
     }
   }, [transcript, isListening]);
   
-  const getRandomWord = () => {
-    const randomIndex = Math.floor(Math.random() * mockDictionary.length);
-    setCurrentWord(mockDictionary[randomIndex]);
-  };
-  
   const handleLevelChange = (level: "beginner" | "intermediate" | "advanced") => {
     setCurrentLevel(level);
     toast({
       title: "Level Changed",
-      description: `Vocabulary level set to ${level}`,
+      description: `Vocabulary level set to ${level}. Loading new words...`,
     });
   };
   
   const checkPronunciation = (spoken: string) => {
+    if (!currentWord) return;
+    
     const spokenLower = spoken.toLowerCase().trim();
     const targetLower = currentWord.word.toLowerCase();
     
@@ -137,6 +90,8 @@ const VocabularyTrainer: React.FC = () => {
   };
   
   const markWordAsLearned = () => {
+    if (!currentWord) return;
+    
     // Update daily progress
     if (dailyProgress < 5) {
       setDailyProgress(prev => prev + 1);
@@ -160,7 +115,7 @@ const VocabularyTrainer: React.FC = () => {
     });
     
     setTimeout(() => {
-      getRandomWord();
+      nextWord();
     }, 1000);
   };
   
@@ -185,11 +140,11 @@ const VocabularyTrainer: React.FC = () => {
     setIsSpellMode(!isSpellMode);
   };
 
-  // NEW: Handler to show interesting usage of the word in various tenses/voice
   const handleKnowMore = () => {
+    if (!currentWord) return;
+    
     const { word, partOfSpeech } = currentWord;
 
-    // Only basic logic for English; could use AI in real apps
     let examples: string[] = [];
 
     if (partOfSpeech === "verb") {
@@ -231,6 +186,44 @@ const VocabularyTrainer: React.FC = () => {
     });
   };
 
+  // Show loading state
+  if (loading) {
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen bg-background flex w-full">
+          <AppSidebar />
+          <div className="flex-1 flex flex-col items-center justify-center p-4 md:p-8">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <h2 className="text-xl font-semibold">Loading Today's Vocabulary...</h2>
+              <p className="text-gray-600">Fetching fresh words for your learning journey</p>
+            </div>
+          </div>
+        </div>
+      </SidebarProvider>
+    );
+  }
+
+  // Show error state
+  if (error || !currentWord) {
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen bg-background flex w-full">
+          <AppSidebar />
+          <div className="flex-1 flex flex-col items-center justify-center p-4 md:p-8">
+            <div className="text-center">
+              <h2 className="text-xl font-semibold text-red-600 mb-2">Unable to load vocabulary</h2>
+              <p className="text-gray-600 mb-4">Please check your connection and try again</p>
+              <Button onClick={() => loadVocabulary(currentLevel)}>
+                Retry Loading
+              </Button>
+            </div>
+          </div>
+        </div>
+      </SidebarProvider>
+    );
+  }
+
   return (
     <SidebarProvider>
       <div className="min-h-screen bg-background flex w-full">
@@ -241,7 +234,7 @@ const VocabularyTrainer: React.FC = () => {
               <h1 className="text-3xl md:text-4xl font-playfair font-bold text-primary mb-2">
                 Vocabulary Trainer
               </h1>
-              <p className="text-gray-600">Learn, practice, and master new words</p>
+              <p className="text-gray-600">Learn, practice, and master new words daily</p>
             </header>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -264,11 +257,23 @@ const VocabularyTrainer: React.FC = () => {
                   />
                 </div>
 
-                {/* Only two modes: WordCard and SpellCheck */}
+                {/* Daily Words Indicator */}
+                <div className="mb-4 bg-gradient-to-r from-blue-50 to-purple-50 p-3 rounded-lg border border-primary/20">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                      <span className="text-sm font-medium">Today's Words</span>
+                    </div>
+                    <span className="text-sm text-gray-600">
+                      {currentWordIndex + 1} of {totalWords} • Fresh daily content
+                    </span>
+                  </div>
+                </div>
+
                 {!isSpellMode && (
                   <WordCard 
                     word={currentWord}
-                    onNextWord={getRandomWord}
+                    onNextWord={nextWord}
                     onPractice={handlePracticeClick}
                     isListening={isListening}
                   />
@@ -278,7 +283,7 @@ const VocabularyTrainer: React.FC = () => {
                   <SpellCheck 
                     word={currentWord} 
                     onCorrect={markWordAsLearned}
-                    onNext={getRandomWord}
+                    onNext={nextWord}
                   />
                 )}
 
@@ -292,7 +297,6 @@ const VocabularyTrainer: React.FC = () => {
                     Spelling Practice
                   </Button>
                   
-                  {/* Modified "Know More" button */}
                   <Button
                     onClick={handleKnowMore}
                     variant="outline"
@@ -302,8 +306,14 @@ const VocabularyTrainer: React.FC = () => {
                     Know More
                   </Button>
                   
-                  {/* To keep 3 columns, retain a placeholder or leave blank */}
-                  <div />
+                  <Button
+                    onClick={getRandomWord}
+                    variant="outline"
+                    className="flex items-center justify-center"
+                  >
+                    <Play className="mr-2 h-4 w-4" />
+                    Random
+                  </Button>
                 </div>
               </div>
 

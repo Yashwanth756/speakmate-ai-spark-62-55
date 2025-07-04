@@ -33,8 +33,6 @@ def insert_activity_log():
     print('Activity log inserted/updated:', result)
     return jsonify({'status': 'Activity log inserted/updated'})
 
-
-
 # Login Route
 @app.route('/login', methods=['POST'])
 def login():
@@ -263,7 +261,109 @@ def get_students():
     return jsonify(results)
 
 
+@app.route('/update-wordscramble-words', methods=['POST'])
+def update_words():
+    data = request.json
+    class_name = data.get('classes')
+    section = data.get('section')
+    words = data.get('words', [])
 
+    if not class_name or not section:
+        return jsonify({"message": "Missing classes or section"}), 400
+
+    # Prepare words by difficulty
+    difficulty_map = {"easy": [], "medium": [], "hard": []}
+    for item in words:
+        word = item.get("word")
+        difficulty = item.get("difficulty")
+        if difficulty in difficulty_map:
+            difficulty_map[difficulty].append([word, 0, False])
+
+    # Build update object
+    update_obj = {}
+    for diff, word_list in difficulty_map.items():
+        if word_list:
+            update_obj[f"wordscramble.{diff}"] = { "$each": word_list }
+
+    if not update_obj:
+        return jsonify({"message": "No valid words to add"}), 400
+
+    # Perform update for all matching users
+    result = collection.update_many(
+        {
+            "classes": class_name,
+            "sections": section
+        },
+        {
+            "$push": update_obj
+        }
+    )
+
+    if result.modified_count:
+        return jsonify({"message": f"Updated {result.modified_count} students successfully"})
+    else:
+        return jsonify({"message": "No matching students found or no updates performed"}), 404
+
+
+DIFFICULTY_MAP = {
+    "easy": "beginner",
+    "medium": "intermediate",
+    "hard": "advanced"
+}
+
+@app.route('/update-vocab', methods=['POST'])
+def update_vocab():
+    data = request.json
+    class_name = data.get('classes')
+    section = data.get('section')
+    words = data.get('words', [])
+    print(words)
+
+    if not class_name or not section:
+        return jsonify({"message": "Missing classes or section"}), 400
+
+    # Build update instructions
+    push_updates = {}
+    for item in words:
+        difficulty = item.get("difficulty")
+        level = DIFFICULTY_MAP.get(difficulty).strip()
+
+        if not level:
+            continue  # skip invalid difficulty
+
+        word_obj = {
+            "word": item.get("word"),
+            "definition": item.get("definition"),
+            "incorrectDefinitions": item.get("wrongDefinitions", []),
+            "partOfSpeech": item.get("partOfSpeech"),
+            "example": item.get("example"),
+            "hint": item.get("hint"),
+            "isSolved": False
+        }
+
+        field_path = f"vocabularyArchade.{level}.wordDetails"
+        if field_path not in push_updates:
+            push_updates[field_path] = {"$each": []}
+        push_updates[field_path]["$each"].append(word_obj)
+
+    if not push_updates:
+        return jsonify({"message": "No valid words to add"}), 400
+
+    # Update all matching students
+    result = collection.update_many(
+        {
+            "classes": class_name,
+            "sections": section
+        },
+        {
+            "$push": push_updates
+        }
+    )
+
+    if result.modified_count:
+        return jsonify({"message": f"Updated {result.modified_count} students successfully"})
+    else:
+        return jsonify({"message": "No matching students found or no updates performed"}), 404
 
 
 

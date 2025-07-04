@@ -47,7 +47,7 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [newAssignment, setNewAssignment] = useState<{
-    type: 'reflex' | 'story' | 'puzzle' | 'quick_quiz',
+    type: 'reflex' | 'story' | 'puzzle' | 'quick_quiz' | 'word_scramble' | 'vocabulary_builder' | 'word_search',
     title: string,
     content: string,
     dueDate: string,
@@ -70,8 +70,38 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
   const [quizTimer, setQuizTimer] = useState(60); // seconds
   const [quizQuestions, setQuizQuestions] = useState([{ question: '', answer: '' }]);
 
+  // Word Scramble specific state
+  const [scrambleWords, setScrambleWords] = useState<Array<{word: string, difficulty: 'easy' | 'medium' | 'hard'}>>([]);
+  const [newScrambleWord, setNewScrambleWord] = useState('');
+  const [newScrambleDifficulty, setNewScrambleDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
+
+  // Vocabulary Builder specific state
+  const [vocabularyWords, setVocabularyWords] = useState<Array<{
+    word: string,
+    definition: string,
+    wrongDefinitions: string[],
+    partOfSpeech: string,
+    hint: string,
+    example: string,
+    difficulty?: 'easy' | 'medium' | 'hard'
+  }>>([]);
+  const [newVocabWord, setNewVocabWord] = useState({
+    word: '',
+    definition: '',
+    wrongDefinitions: ['', '', ''],
+    partOfSpeech: '',
+    hint: '',
+    example: '',
+    difficulty: ''
+  });
+
+  // Word Search specific state
+  const [wordSearchWords, setWordSearchWords] = useState<Array<{word: string, definition: string}>>([]);
+  const [newWordSearchWord, setNewWordSearchWord] = useState('');
+  const [newWordSearchDefinition, setNewWordSearchDefinition] = useState('');
+
   // Reset form when type changes (for clarity)
-  const handleAssignmentTypeChange = (type: 'reflex' | 'story' | 'puzzle' | 'quick_quiz') => {
+  const handleAssignmentTypeChange = (type: 'reflex' | 'story' | 'puzzle' | 'quick_quiz' | 'word_scramble' | 'vocabulary_builder' | 'word_search') => {
     setNewAssignment({
       type,
       title: '',
@@ -88,6 +118,28 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
       setQuizQuestions([{ question: '', answer: '' }]);
       setQuizTimer(60);
     }
+    if (type === 'word_scramble') {
+      setScrambleWords([]);
+      setNewScrambleWord('');
+      setNewScrambleDifficulty('easy');
+    }
+    if (type === 'vocabulary_builder') {
+      setVocabularyWords([]);
+      setNewVocabWord({
+        word: '',
+        definition: '',
+        wrongDefinitions: ['', '', ''],
+        partOfSpeech: '',
+        hint: '',
+        example: '',
+        difficulty: ''
+      });
+    }
+    if (type === 'word_search') {
+      setWordSearchWords([]);
+      setNewWordSearchWord('');
+      setNewWordSearchDefinition('');
+    }
   };
 
   const teacherAssignments = getAssignmentsForTeacher(user?.classes || [], user?.sections || []);
@@ -98,11 +150,39 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
 
   const handleCreateAssignment = () => {
     // Validation per type:
+    
     if (newAssignment.type === 'quick_quiz') {
       if (!newAssignment.title.trim() || quizQuestions.length === 0 || quizQuestions.some(q => !q.question.trim() || !q.answer.trim())) {
         toast({
           title: "Quiz Incomplete",
           description: "Please provide the quiz title and all questions and answers.",
+          variant: "destructive"
+        });
+        return;
+      }
+    } else if (newAssignment.type === 'word_scramble') {
+      if (!newAssignment.title.trim() || scrambleWords.length === 0) {
+        toast({
+          title: "Word Scramble Incomplete",
+          description: "Please provide the title and at least one word.",
+          variant: "destructive"
+        });
+        return;
+      }
+    } else if (newAssignment.type === 'vocabulary_builder') {
+      if (!newAssignment.title.trim() || vocabularyWords.length === 0) {
+        toast({
+          title: "Vocabulary Builder Incomplete",
+          description: "Please provide the title and at least one vocabulary word.",
+          variant: "destructive"
+        });
+        return;
+      }
+    } else if (newAssignment.type === 'word_search') {
+      if (!newAssignment.title.trim() || wordSearchWords.length === 0) {
+        toast({
+          title: "Word Search Incomplete",
+          description: "Please provide the title and at least one word with definition.",
           variant: "destructive"
         });
         return;
@@ -134,8 +214,9 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
         targetSection: selectedSection,
         createdBy: user?.fullName || 'Unknown Teacher',
         status: "published",
-        metadata: { ...newAssignment.metadata, words: puzzleWords }
+        metadata: { ...newAssignment.metadata, puzzleWords: puzzleWords }
       };
+      console.log(puzzleWords);
     } else if (newAssignment.type === 'story') {
       assignmentToCreate = {
         ...newAssignment,
@@ -167,7 +248,104 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
           questions: quizQuestions
         }
       };
+    } else if (newAssignment.type === 'word_scramble') {
+      assignmentToCreate = {
+        ...newAssignment,
+        targetClass: selectedClass,
+        targetSection: selectedSection,
+        createdBy: user?.fullName || 'Unknown Teacher',
+        status: "published",
+        metadata: {
+          scrambleWords: scrambleWords
+        }
+      };
+      console.log(scrambleWords);
+      const wordsToAdd = scrambleWords
+
+      const sendWordsToServer = async () => {
+        const payload = {
+          classes: selectedClass,
+          section: selectedSection,
+          words: wordsToAdd
+        };
+
+        try {
+          const response = await fetch("http://localhost:5000/update-wordscramble-words", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+          });
+
+          const data = await response.json();
+          console.log("Server response:", data);
+          alert(`Server says: ${data.message}`);
+        } catch (error) {
+          console.error("Error sending data:", error);
+          alert("Error sending data to server");
+        }
+      };
+      sendWordsToServer();
+
+    } else if (newAssignment.type === 'vocabulary_builder') {
+      assignmentToCreate = {
+        ...newAssignment,
+        targetClass: selectedClass,
+        targetSection: selectedSection,
+        createdBy: user?.fullName || 'Unknown Teacher',
+        status: "published",
+        metadata: {
+          vocabularyWords: vocabularyWords
+        }
+        
+      };
+      console.log(vocabularyWords);
+      const sendWordsToServer = async () => {
+        const wordsToAdd = vocabularyWords
+
+        const payload = {
+          classes:selectedClass,
+          section: selectedSection,
+          words: wordsToAdd
+        };
+
+        try {
+          const response = await fetch("http://localhost:5000/update-vocab", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+          });
+
+          const data = await response.json();
+          console.log("Server response:", data);
+          alert(`Server says: ${data.message}`);
+        } catch (error) {
+          console.error("Error:", error);
+          alert("Error sending data to server");
+        }
+      };
+
+      sendWordsToServer()
+
+
+
+    } else if (newAssignment.type === 'word_search') {
+      assignmentToCreate = {
+        ...newAssignment,
+        targetClass: selectedClass,
+        targetSection: selectedSection,
+        createdBy: user?.fullName || 'Unknown Teacher',
+        status: "published",
+        metadata: {
+          searchWords: wordSearchWords
+        }
+      };
+      console.log(wordSearchWords);
     }
+    console.log('asig ', assignmentToCreate)
 
     createAssignment(assignmentToCreate);
 
@@ -189,6 +367,22 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
     setIsCreating(false);
     setQuizQuestions([{ question: '', answer: '' }]);
     setQuizTimer(60);
+    setScrambleWords([]);
+    setNewScrambleWord('');
+    setNewScrambleDifficulty('easy');
+    setVocabularyWords([]);
+    setNewVocabWord({
+      word: '',
+      definition: '',
+      wrongDefinitions: ['', '', ''],
+      partOfSpeech: '',
+      hint: '',
+      example: '',
+      difficulty: ''
+    });
+    setWordSearchWords([]);
+    setNewWordSearchWord('');
+    setNewWordSearchDefinition('');
   };
 
   const handleDeleteAssignment = (id: string, title: string) => {
@@ -230,6 +424,9 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
       case 'story': return <BookOpen className="h-4 w-4" />;
       case 'puzzle': return <Puzzle className="h-4 w-4" />;
       case 'quick_quiz': return <BookOpen className="h-4 w-4" />;
+      case 'word_scramble': return <Puzzle className="h-4 w-4" />;
+      case 'vocabulary_builder': return <BookOpen className="h-4 w-4" />;
+      case 'word_search': return <Puzzle className="h-4 w-4" />;
       default: return <BookOpen className="h-4 w-4" />;
     }
   };
@@ -249,6 +446,49 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
       title: "Assignment Updated",
       description: `Assignment ${!currentStatus ? 'marked as required' : 'no longer required'}`,
     });
+  };
+
+  const addScrambleWord = () => {
+    if (newScrambleWord.trim()) {
+      setScrambleWords([...scrambleWords, { word: newScrambleWord.trim(), difficulty: newScrambleDifficulty }]);
+      setNewScrambleWord('');
+      setNewScrambleDifficulty('easy');
+    }
+  };
+
+  const removeScrambleWord = (index: number) => {
+    setScrambleWords(scrambleWords.filter((_, i) => i !== index));
+  };
+
+  const addVocabularyWord = () => {
+    if (newVocabWord.word.trim() && newVocabWord.definition.trim()) {
+      setVocabularyWords([...vocabularyWords, { ...newVocabWord }]);
+      setNewVocabWord({
+        word: '',
+        definition: '',
+        wrongDefinitions: ['', '', ''],
+        partOfSpeech: '',
+        hint: '',
+        example: '',
+        difficulty: ''
+      });
+    }
+  };
+
+  const removeVocabularyWord = (index: number) => {
+    setVocabularyWords(vocabularyWords.filter((_, i) => i !== index));
+  };
+
+  const addWordSearchWord = () => {
+    if (newWordSearchWord.trim() && newWordSearchDefinition.trim()) {
+      setWordSearchWords([...wordSearchWords, { word: newWordSearchWord.trim(), definition: newWordSearchDefinition.trim() }]);
+      setNewWordSearchWord('');
+      setNewWordSearchDefinition('');
+    }
+  };
+
+  const removeWordSearchWord = (index: number) => {
+    setWordSearchWords(wordSearchWords.filter((_, i) => i !== index));
   };
 
   return (
@@ -283,6 +523,9 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
                     <SelectItem value="story">Story Builder</SelectItem>
                     <SelectItem value="puzzle">Word Puzzle</SelectItem>
                     <SelectItem value="quick_quiz">Quick Quiz</SelectItem>
+                    <SelectItem value="word_scramble">Word Scramble</SelectItem>
+                    <SelectItem value="vocabulary_builder">Vocabulary Builder</SelectItem>
+                    <SelectItem value="word_search">Word Search</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -295,6 +538,199 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
                 <Input value={selectedSection === 'all-sections' ? '' : `Section ${selectedSection}`} disabled />
               </div>
             </div>
+
+            {/* Word Scramble form */}
+            {newAssignment.type === 'word_scramble' && (
+              <div className="space-y-4">
+                <div>
+                  <Label>Assignment Title</Label>
+                  <Input
+                    placeholder="Enter word scramble title..."
+                    value={newAssignment.title}
+                    onChange={(e) => setNewAssignment(prev => ({ ...prev, title: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label>Instructions (optional)</Label>
+                  <Textarea
+                    placeholder="Instructions for students..."
+                    value={newAssignment.content}
+                    onChange={(e) => setNewAssignment(prev => ({ ...prev, content: e.target.value }))}
+                    rows={2}
+                  />
+                </div>
+                <div>
+                  <Label>Add Words</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Enter word"
+                      value={newScrambleWord}
+                      onChange={(e) => setNewScrambleWord(e.target.value)}
+                    />
+                    <Select value={newScrambleDifficulty} onValueChange={(value: any) => setNewScrambleDifficulty(value)}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="easy">Easy</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="hard">Hard</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button onClick={addScrambleWord} type="button">Add</Button>
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {scrambleWords.map((word, index) => (
+                      <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                        <span>{word.word} ({word.difficulty})</span>
+                        <Button onClick={() => removeScrambleWord(index)} variant="outline" size="sm">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Vocabulary Builder form */}
+            {newAssignment.type === 'vocabulary_builder' && (
+              <div className="space-y-4">
+                <div>
+                  <Label>Assignment Title</Label>
+                  <Input
+                    placeholder="Enter vocabulary builder title..."
+                    value={newAssignment.title}
+                    onChange={(e) => setNewAssignment(prev => ({ ...prev, title: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label>Instructions (optional)</Label>
+                  <Textarea
+                    placeholder="Instructions for students..."
+                    value={newAssignment.content}
+                    onChange={(e) => setNewAssignment(prev => ({ ...prev, content: e.target.value }))}
+                    rows={2}
+                  />
+                </div>
+                <div>
+                  <Label>Add Vocabulary Word</Label>
+                  <div className="space-y-3 border p-4 rounded">
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        placeholder="Word"
+                        value={newVocabWord.word}
+                        onChange={(e) => setNewVocabWord(prev => ({ ...prev, word: e.target.value }))}
+                      />
+                      <Input
+                        placeholder="Part of Speech"
+                        value={newVocabWord.partOfSpeech}
+                        onChange={(e) => setNewVocabWord(prev => ({ ...prev, partOfSpeech: e.target.value }))}
+                      />
+                      <Input
+                        placeholder="easy | medium | hard"
+                        value={newVocabWord.difficulty}
+                        onChange={(e) => setNewVocabWord(prev => ({ ...prev, difficulty: e.target.value }))}
+                      />
+                    </div>
+                    
+                    <Textarea
+                      placeholder="Correct Definition"
+                      value={newVocabWord.definition}
+                      onChange={(e) => setNewVocabWord(prev => ({ ...prev, definition: e.target.value }))}
+                      rows={2}
+                    />
+                    <div>
+                      <Label>Wrong Definitions (3 required)</Label>
+                      {newVocabWord.wrongDefinitions.map((def, index) => (
+                        <Input
+                          key={index}
+                          placeholder={`Wrong definition ${index + 1}`}
+                          value={def}
+                          onChange={(e) => {
+                            const updated = [...newVocabWord.wrongDefinitions];
+                            updated[index] = e.target.value;
+                            setNewVocabWord(prev => ({ ...prev, wrongDefinitions: updated }));
+                          }}
+                          className="mt-1"
+                        />
+                      ))}
+                    </div>
+                    <Input
+                      placeholder="Hint (optional)"
+                      value={newVocabWord.hint}
+                      onChange={(e) => setNewVocabWord(prev => ({ ...prev, hint: e.target.value }))}
+                    />
+                    <Textarea
+                      placeholder="Example sentence"
+                      value={newVocabWord.example}
+                      onChange={(e) => setNewVocabWord(prev => ({ ...prev, example: e.target.value }))}
+                      rows={2}
+                    />
+                    <Button onClick={addVocabularyWord} type="button">Add Word</Button>
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {vocabularyWords.map((word, index) => (
+                      <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                        <span>{word.word} - {word.definition.substring(0, 50)}...</span>
+                        <Button onClick={() => removeVocabularyWord(index)} variant="outline" size="sm">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Word Search form */}
+            {newAssignment.type === 'word_search' && (
+              <div className="space-y-4">
+                <div>
+                  <Label>Assignment Title</Label>
+                  <Input
+                    placeholder="Enter word search title..."
+                    value={newAssignment.title}
+                    onChange={(e) => setNewAssignment(prev => ({ ...prev, title: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label>Instructions (optional)</Label>
+                  <Textarea
+                    placeholder="Instructions for students..."
+                    value={newAssignment.content}
+                    onChange={(e) => setNewAssignment(prev => ({ ...prev, content: e.target.value }))}
+                    rows={2}
+                  />
+                </div>
+                <div>
+                  <Label>Add Words with Definitions</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Word"
+                      value={newWordSearchWord}
+                      onChange={(e) => setNewWordSearchWord(e.target.value)}
+                    />
+                    <Input
+                      placeholder="Definition"
+                      value={newWordSearchDefinition}
+                      onChange={(e) => setNewWordSearchDefinition(e.target.value)}
+                    />
+                    <Button onClick={addWordSearchWord} type="button">Add</Button>
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {wordSearchWords.map((word, index) => (
+                      <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                        <span>{word.word} - {word.definition}</span>
+                        <Button onClick={() => removeWordSearchWord(index)} variant="outline" size="sm">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Conditional Quick Quiz form */}
             {newAssignment.type === 'quick_quiz' && (
@@ -570,7 +1006,7 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {getTypeIcon(assignment.type)}
-                          <span className="capitalize">{assignment.type}</span>
+                          <span className="capitalize">{assignment.type.replace('_', ' ')}</span>
                         </div>
                       </TableCell>
                       <TableCell>

@@ -3,7 +3,7 @@ import { useAuth } from './AuthContext';
 
 export interface Assignment {
   id: string;
-  type: 'reflex' | 'story' | 'puzzle' | 'quick_quiz'; // Add quick_quiz
+  type: 'reflex' | 'story' | 'puzzle' | 'quick_quiz' | 'word_scramble' | 'vocabulary_builder' | 'word_search';
   title: string;
   content: string;
   targetClass: string;
@@ -25,6 +25,19 @@ export interface Assignment {
       question: string;
       answer: string;
     }[];
+    // Word Scramble fields
+    words?: Array<{word: string, difficulty: 'easy' | 'medium' | 'hard'}>;
+    // Vocabulary Builder fields
+    vocabularyWords?: Array<{
+      word: string,
+      definition: string,
+      wrongDefinitions: string[],
+      partOfSpeech: string,
+      hint: string,
+      example: string
+    }>;
+    // Word Search fields
+    words?: Array<{word: string, definition: string}>;
   };
 }
 
@@ -122,6 +135,71 @@ const MOCK_ASSIGNMENTS: Assignment[] = [
       questions: [
         { question: 'What is the synonym for "happy"?', answer: 'joyful' },
         { question: 'Spell the opposite of "success".', answer: 'failure' }
+      ]
+    }
+  },
+  {
+    id: '5',
+    type: 'word_scramble',
+    title: 'Animal Words Scramble',
+    content: 'Unscramble the animal names',
+    targetClass: 'Class 8',
+    targetSection: 'A',
+    createdBy: 'Ms. Johnson',
+    createdAt: '2024-06-13T10:00:00Z',
+    updatedAt: '2024-06-13T10:00:00Z',
+    status: 'published',
+    isRequired: false,
+    metadata: {
+      words: [
+        { word: 'elephant', difficulty: 'medium' },
+        { word: 'tiger', difficulty: 'easy' },
+        { word: 'hippopotamus', difficulty: 'hard' }
+      ]
+    }
+  },
+  {
+    id: '6',
+    type: 'vocabulary_builder',
+    title: 'Advanced English Vocabulary',
+    content: 'Match words with their correct definitions',
+    targetClass: 'Class 8',
+    targetSection: 'A',
+    createdBy: 'Ms. Johnson',
+    createdAt: '2024-06-14T11:00:00Z',
+    updatedAt: '2024-06-14T11:00:00Z',
+    status: 'published',
+    isRequired: false,
+    metadata: {
+      vocabularyWords: [
+        {
+          word: 'ephemeral',
+          definition: 'Lasting for a very short time',
+          wrongDefinitions: ['Lasting forever', 'Very expensive', 'Made of metal'],
+          partOfSpeech: 'adjective',
+          hint: 'Think of something that disappears quickly',
+          example: 'The beauty of the sunset was ephemeral.'
+        }
+      ]
+    }
+  },
+  {
+    id: '7',
+    type: 'word_search',
+    title: 'Geography Word Search',
+    content: 'Find geography terms in the word search puzzle',
+    targetClass: 'Class 8',
+    targetSection: 'A',
+    createdBy: 'Ms. Johnson',
+    createdAt: '2024-06-15T12:00:00Z',
+    updatedAt: '2024-06-15T12:00:00Z',
+    status: 'published',
+    isRequired: false,
+    metadata: {
+      words: [
+        { word: 'mountain', definition: 'A large natural elevation of the earth\'s surface' },
+        { word: 'ocean', definition: 'A very large expanse of sea' },
+        { word: 'desert', definition: 'A dry, barren area of land' }
       ]
     }
   }

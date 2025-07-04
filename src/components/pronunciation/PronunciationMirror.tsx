@@ -1,75 +1,16 @@
+
 import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Mic, Volume2, Webcam, Star, ArrowRight } from "lucide-react";
+import { Mic, Volume2, Webcam, Star, ArrowRight, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 import { PieChart, Pie, Cell, Tooltip } from "recharts";
 import { useSpeechAudio } from "@/hooks/use-speech-audio";
 import { toast } from "sonner";
 import { TalkingFaceDiagram } from "./TalkingFaceDiagram";
-
-// Sample syllables breakdown for different words
-const wordLibrary = {
-  beginner: [
-    {
-      word: "Elephant",
-      syllables: [
-        { part: "E", tip: "Open mouth, short 'eh' sound" },
-        { part: "le", tip: "Lift tongue to roof" },
-        { part: "phant", tip: "Lower jaw, f sound with teeth on lip" },
-      ]
-    },
-    {
-      word: "Hello",
-      syllables: [
-        { part: "He", tip: "Open mouth slightly, h from throat" },
-        { part: "llo", tip: "Tongue behind teeth, round lips" },
-      ]
-    }
-  ],
-  intermediate: [
-    {
-      word: "Beautiful",
-      syllables: [
-        { part: "Beau", tip: "Purse lips together, then open" },
-        { part: "ti", tip: "Tongue touches roof briefly" },
-        { part: "ful", tip: "Lower lip touches upper teeth" },
-      ]
-    },
-    {
-      word: "Together",
-      syllables: [
-        { part: "To", tip: "Tongue behind teeth" },
-        { part: "ge", tip: "Back of tongue raised" },
-        { part: "ther", tip: "Tongue between teeth slightly" },
-      ]
-    }
-  ],
-  advanced: [
-    {
-      word: "Congratulations",
-      syllables: [
-        { part: "Con", tip: "Back of tongue raised" },
-        { part: "gra", tip: "Lower jaw, g from throat" },
-        { part: "tu", tip: "Tongue tip up" },
-        { part: "la", tip: "Wide mouth opening" },
-        { part: "tions", tip: "Tongue tip on teeth, then 's' sound" },
-      ]
-    },
-    {
-      word: "Particularly",
-      syllables: [
-        { part: "Par", tip: "Lips slightly apart" },
-        { part: "ti", tip: "Tongue tip up" },
-        { part: "cu", tip: "Back of tongue raised" },
-        { part: "lar", tip: "Tongue relaxed" },
-        { part: "ly", tip: "Tongue to roof of mouth" },
-      ]
-    }
-  ]
-};
+import { sendMessageToGemini } from "@/lib/gemini-api";
 
 const COLORS = ["#00c853", "#ffd600", "#ff5252"];
 
@@ -79,19 +20,26 @@ const levels = [
   { label: "Advanced", value: "advanced" },
 ];
 
+interface WordData {
+  word: string;
+  syllables: {
+    part: string;
+    tip: string;
+  }[];
+}
+
 export function PronunciationMirror() {
   const webcamRef = useRef<HTMLVideoElement | null>(null);
   const [level, setLevel] = useState("beginner");
-  const [word, setWord] = useState("");
-  const [syllables, setSyllables] = useState<{part: string, tip: string}[]>([]);
+  const [wordData, setWordData] = useState<WordData | null>(null);
   const [score, setScore] = useState(0);
   const [pie, setPie] = useState<{name: string, value: number}[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [stars, setStars] = useState(0);
-  const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [currentPhoneme, setCurrentPhoneme] = useState("");
   const [isModelAnimating, setIsModelAnimating] = useState(false);
+  const [loadingWord, setLoadingWord] = useState(false);
   
   const { 
     isListening, 
@@ -132,35 +80,88 @@ export function PronunciationMirror() {
     };
   }, []);
 
-  // Handle new word generation
-  const handleNewWord = () => {
-    const levelWords = wordLibrary[level as keyof typeof wordLibrary];
-    let newIndex = currentWordIndex;
-    
-    // If we've used all words, go back to the first word
-    if (newIndex >= levelWords.length) {
-      newIndex = 0;
-    }
-    
-    const wordData = levelWords[newIndex];
-    setWord(wordData.word);
-    setSyllables(wordData.syllables);
+  // Generate new word using Gemini
+  const handleNewWord = async () => {
+    setLoadingWord(true);
     setScore(0);
     setStars(0);
-    setPie(wordData.syllables.map(s => ({ name: s.part, value: 0 })));
+    setPie([]);
     setFeedback("");
     
-    // Move to next word for next time
-    setCurrentWordIndex(newIndex + 1);
+    try {
+      const prompt = `Generate a ${level} level English word for pronunciation practice. Provide the response in this exact JSON format only, no other text:
+
+{
+  "word": "example",
+  "syllables": [
+    {
+      "part": "ex",
+      "tip": "Short 'e' sound, tongue relaxed"
+    },
+    {
+      "part": "am",
+      "tip": "Open mouth wide, short 'a' sound"
+    },
+    {
+      "part": "ple",
+      "tip": "Soft 'p', tongue touches roof for 'l'"
+    }
+  ]
+}
+
+Make sure the word is appropriate for ${level} level learners and provide 2-4 syllables with specific pronunciation tips for each syllable part.`;
+
+      const response = await sendMessageToGemini(prompt, "pronunciation-practice");
+      
+      try {
+        // Extract JSON from response
+        const jsonMatch = response.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsedData = JSON.parse(jsonMatch[0]);
+          setWordData(parsedData);
+          setPie(parsedData.syllables.map((s: any) => ({ name: s.part, value: 0 })));
+        } else {
+          throw new Error("No valid JSON found in response");
+        }
+      } catch (parseError) {
+        console.error("Failed to parse Gemini response:", parseError);
+        // Fallback word data
+        setWordData({
+          word: "Hello",
+          syllables: [
+            { part: "He", tip: "Open mouth slightly, h from throat" },
+            { part: "llo", tip: "Tongue behind teeth, round lips" }
+          ]
+        });
+        setPie([{ name: "He", value: 0 }, { name: "llo", value: 0 }]);
+        toast.error("Using fallback word. Please check your Gemini API key in Settings.");
+      }
+    } catch (error) {
+      console.error("Error generating word:", error);
+      // Fallback word data
+      setWordData({
+        word: "Practice",
+        syllables: [
+          { part: "Prac", tip: "Press lips together, then release" },
+          { part: "tice", tip: "Tongue tip touches roof of mouth" }
+        ]
+      });
+      setPie([{ name: "Prac", value: 0 }, { name: "tice", value: 0 }]);
+      toast.error("Failed to generate new word. Using fallback.");
+    } finally {
+      setLoadingWord(false);
+    }
   };
 
   // Pronounce the current word
   const handlePronounce = () => {
-    speakText(word);
-    setIsModelAnimating(true);
-    
-    // Stop model animation after word is spoken (approx. 3s)
-    setTimeout(() => setIsModelAnimating(false), 3000);
+    if (wordData) {
+      speakText(wordData.word);
+      setIsModelAnimating(true);
+      
+      // Stop model animation after word is spoken (approx. 3s)
+      setTimeout(() => setIsModelAnimating(false), 3000);
+    }
   };
 
   // Handle recording
@@ -179,12 +180,17 @@ export function PronunciationMirror() {
       return;
     }
     
+    if (!wordData) {
+      toast.error("No word data available");
+      return;
+    }
+    
     setAnalyzing(true);
     
     // Simulate analysis with random scores for demonstration
     setTimeout(() => {
       // Generate phoneme accuracy
-      const phonemeScores = syllables.map(syl => {
+      const phonemeScores = wordData.syllables.map(syl => {
         // Generate random score between 60-95 for demo
         return {
           name: syl.part,
@@ -213,7 +219,7 @@ export function PronunciationMirror() {
         { name: "", value: 100 }
       );
       
-      const syllableTip = syllables.find(s => s.part === lowestScore.name)?.tip || "";
+      const syllableTip = wordData.syllables.find(s => s.part === lowestScore.name)?.tip || "";
       
       setFeedback(
         overallScore >= 90
@@ -242,7 +248,7 @@ export function PronunciationMirror() {
             className="ml-4 text-sm rounded px-2 py-1 bg-primary text-white font-normal tracking-wide"
             style={{ letterSpacing: ".08em" }}
           >
-            Beta
+            AI-Powered
           </span>
         </CardTitle>
       </CardHeader>
@@ -267,44 +273,58 @@ export function PronunciationMirror() {
               </Select>
               
               <div className="mt-4">
-                <Button variant="secondary" className="w-full" onClick={handleNewWord}>
-                  Generate New Word
+                <Button 
+                  variant="secondary" 
+                  className="w-full" 
+                  onClick={handleNewWord}
+                  disabled={loadingWord}
+                >
+                  {loadingWord ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    "Generate New Word"
+                  )}
                 </Button>
               </div>
             </div>
             
             {/* Word Display & Syllables */}
-            <div className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm">
-              <div className="text-center">
-                <h3 className="text-xl font-bold text-primary mb-2">{word}</h3>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={handlePronounce}
-                  className="mb-4"
-                >
-                  <Volume2 className="w-4 h-4 mr-2" /> Listen
-                </Button>
-              </div>
-              
-              <div className="mt-2">
-                <div className="font-semibold text-xs uppercase mb-2 text-muted-foreground">
-                  Syllable Breakdown
+            {wordData && (
+              <div className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm">
+                <div className="text-center">
+                  <h3 className="text-xl font-bold text-primary mb-2">{wordData.word}</h3>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handlePronounce}
+                    className="mb-4"
+                  >
+                    <Volume2 className="w-4 h-4 mr-2" /> Listen
+                  </Button>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {syllables.map((syl, i) => (
-                    <div
-                      key={i}
-                      className="rounded-lg bg-primary/10 px-3 py-2 flex flex-col items-center shadow-sm text-sm hover:bg-primary/20 cursor-pointer transition-colors"
-                      onClick={() => demonstratePhoneme(syl.part)}
-                    >
-                      <span className="font-bold">{syl.part}</span>
-                      <span className="text-[11px] text-muted-foreground text-center">{syl.tip}</span>
-                    </div>
-                  ))}
+                
+                <div className="mt-2">
+                  <div className="font-semibold text-xs uppercase mb-2 text-muted-foreground">
+                    Syllable Breakdown
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {wordData.syllables.map((syl, i) => (
+                      <div
+                        key={i}
+                        className="rounded-lg bg-primary/10 px-3 py-2 flex flex-col items-center shadow-sm text-sm hover:bg-primary/20 cursor-pointer transition-colors"
+                        onClick={() => demonstratePhoneme(syl.part)}
+                      >
+                        <span className="font-bold">{syl.part}</span>
+                        <span className="text-[11px] text-muted-foreground text-center">{syl.tip}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
             
             {/* Practice Controls */}
             <div className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm">
@@ -368,17 +388,17 @@ export function PronunciationMirror() {
               <div className="text-sm font-semibold mb-2 text-center flex items-center justify-center gap-2">
                 <span>😊</span>
                 Talking Face
-                <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">Simple</span>
+                <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">AI-Powered</span>
               </div>
               <div className="h-64 relative rounded-lg overflow-hidden">
                 <TalkingFaceDiagram 
-                  word={word} 
+                  word={wordData?.word || ""} 
                   isAnimating={isModelAnimating} 
                   phoneme={currentPhoneme}
                 />
               </div>
               <div className="text-xs text-center mt-2 text-muted-foreground">
-                Interactive face • Click syllables to see movement • No complex animations
+                Interactive face • Click syllables to see movement • Powered by Gemini AI
               </div>
             </div>
             
@@ -477,8 +497,18 @@ export function PronunciationMirror() {
             onClick={handleNewWord}
             variant="outline"
             className="flex gap-1 items-center"
+            disabled={loadingWord}
           >
-            Next Word <ArrowRight className="w-4 h-4 ml-1" />
+            {loadingWord ? (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                Next Word <ArrowRight className="w-4 h-4 ml-1" />
+              </>
+            )}
           </Button>
         </div>
       </CardContent>

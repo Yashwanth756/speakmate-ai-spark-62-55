@@ -9,7 +9,7 @@ CORS(app)
 # MongoDB connection
 client = MongoClient("mongodb+srv://root:root@cluster0.jt307.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 db = client['school']
-collection = db['userData']
+collection = db['data']
 
 # Optional: Route to insert activityLog
 @app.route('/insertActivityLog', methods=['POST', 'GET'])
@@ -220,6 +220,51 @@ def update_daily_data():
     else:
         return jsonify({'status': 'Failed to update daily data'}), 500
     # return jsonify({'status': 'Daily data updated successfully'})
+
+
+@app.route('/students', methods=['GET'])
+def get_students():
+    class_arg = request.args.get('class')
+    section_arg = request.args.get('section')
+    print(class_arg, section_arg)
+
+    if not class_arg or not section_arg:
+        return jsonify({"error": "Please provide class and section as query parameters"}), 400
+
+    pipeline = [
+        {
+            "$match": {
+                "role": "student",
+                "classes": class_arg,
+                "sections": section_arg
+            }
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "id": "$id",
+                "username": {"$arrayElemAt": [{"$split": ["$email", "@"]}, 0]},
+                "fullName": "$fullName",
+                "class": {"$arrayElemAt": ["$classes", 0]},
+                "section": {"$arrayElemAt": ["$sections", 0]},
+                "speaking": "$speakingCompletion",
+                "pronunciation": "$pronunciationCompletion",
+                "vocabulary": "$vocabularyCompletion",
+                "grammar": "$grammarCompletion",
+                "story": "$storyCompletion",
+                "reflex": "$reflexCompletion",
+                "timeSpent": "$timeSpent",
+                "overall": "$overall"
+            }
+        }
+    ]
+
+    results = list(collection.aggregate(pipeline))
+    return jsonify(results)
+
+
+
+
 
 
 if __name__ == '__main__':

@@ -9,7 +9,7 @@ let wordscramble = wordscrambleData()
 const easyWords = wordscramble.easy.map(entry => entry[0]);
 const mediumWords = wordscramble.medium.map(entry => entry[0]);
 const hardWords = wordscramble.hard.map(entry => entry[0]);
-
+console.log(wordscramble)
 
 export const  getHintsForWord=(level, word)=> {
   if (!wordscramble[level]) return null;

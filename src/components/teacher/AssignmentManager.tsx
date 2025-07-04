@@ -210,7 +210,7 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
         targetSection: selectedSection,
         createdBy: user?.fullName || 'Unknown Teacher',
         status: "published",
-        metadata: { ...newAssignment.metadata, words: puzzleWords }
+        metadata: { ...newAssignment.metadata, puzzleWords: puzzleWords }
       };
     } else if (newAssignment.type === 'story') {
       assignmentToCreate = {
@@ -251,7 +251,7 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
         createdBy: user?.fullName || 'Unknown Teacher',
         status: "published",
         metadata: {
-          words: scrambleWords
+          scrambleWords: scrambleWords
         }
       };
     } else if (newAssignment.type === 'vocabulary_builder') {
@@ -273,7 +273,7 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
         createdBy: user?.fullName || 'Unknown Teacher',
         status: "published",
         metadata: {
-          words: wordSearchWords
+          searchWords: wordSearchWords
         }
       };
     }

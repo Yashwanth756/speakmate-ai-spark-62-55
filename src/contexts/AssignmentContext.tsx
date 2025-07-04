@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 
@@ -15,7 +16,8 @@ export interface Assignment {
   status: 'draft' | 'published' | 'archived';
   isRequired?: boolean;
   metadata?: {
-    words?: string[];
+    // Puzzle fields
+    puzzleWords?: string[];
     difficulty?: string;
     timeLimit?: number;
     maxAttempts?: number;
@@ -26,7 +28,7 @@ export interface Assignment {
       answer: string;
     }[];
     // Word Scramble fields
-    words?: Array<{word: string, difficulty: 'easy' | 'medium' | 'hard'}>;
+    scrambleWords?: Array<{word: string, difficulty: 'easy' | 'medium' | 'hard'}>;
     // Vocabulary Builder fields
     vocabularyWords?: Array<{
       word: string,
@@ -37,7 +39,7 @@ export interface Assignment {
       example: string
     }>;
     // Word Search fields
-    words?: Array<{word: string, definition: string}>;
+    searchWords?: Array<{word: string, definition: string}>;
   };
 }
 
@@ -113,7 +115,7 @@ const MOCK_ASSIGNMENTS: Assignment[] = [
     status: 'published',
     isRequired: false,
     metadata: {
-      words: ['experiment', 'hypothesis', 'analysis', 'conclusion', 'laboratory'],
+      puzzleWords: ['experiment', 'hypothesis', 'analysis', 'conclusion', 'laboratory'],
       difficulty: 'medium',
       maxAttempts: 3
     }
@@ -151,7 +153,7 @@ const MOCK_ASSIGNMENTS: Assignment[] = [
     status: 'published',
     isRequired: false,
     metadata: {
-      words: [
+      scrambleWords: [
         { word: 'elephant', difficulty: 'medium' },
         { word: 'tiger', difficulty: 'easy' },
         { word: 'hippopotamus', difficulty: 'hard' }
@@ -196,7 +198,7 @@ const MOCK_ASSIGNMENTS: Assignment[] = [
     status: 'published',
     isRequired: false,
     metadata: {
-      words: [
+      searchWords: [
         { word: 'mountain', definition: 'A large natural elevation of the earth\'s surface' },
         { word: 'ocean', definition: 'A very large expanse of sea' },
         { word: 'desert', definition: 'A dry, barren area of land' }

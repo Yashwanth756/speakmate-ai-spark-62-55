@@ -96,9 +96,11 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
   });
 
   // Word Search specific state
-  const [wordSearchWords, setWordSearchWords] = useState<Array<{word: string, definition: string}>>([]);
+  const [wordSearchWords, setWordSearchWords] = useState<Array<{word: string, definition: string, difficulty:string}>>([]);
   const [newWordSearchWord, setNewWordSearchWord] = useState('');
   const [newWordSearchDefinition, setNewWordSearchDefinition] = useState('');
+  const [newWordSearchDifficulty, setNewWordSearchDifficulty] = useState('');
+
 
   // Reset form when type changes (for clarity)
   const handleAssignmentTypeChange = (type: 'reflex' | 'story' | 'puzzle' | 'quick_quiz' | 'word_scramble' | 'vocabulary_builder' | 'word_search') => {
@@ -139,6 +141,7 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
       setWordSearchWords([]);
       setNewWordSearchWord('');
       setNewWordSearchDefinition('');
+      setNewWordSearchDifficulty('')
     }
   };
 
@@ -344,8 +347,39 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
         }
       };
       console.log(wordSearchWords);
+
+      const sendWordSearchData = async () => {
+        const dataToSend = wordSearchWords;
+
+        const payload = {
+          classes: selectedClass,
+          section: selectedSection,
+          words: dataToSend
+        };
+
+        try {
+          const response = await fetch("http://localhost:5000/update-wordsearch", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+          });
+
+          const data = await response.json();
+          console.log("Server response:", data);
+          alert(`Server says: ${data.message}`);
+        } catch (error) {
+          console.error("Error:", error);
+          alert("Error sending data to server");
+        }
+      };
+
+      sendWordSearchData();
+
+
     }
-    console.log('asig ', assignmentToCreate)
+    // console.log('asig ', assignmentToCreate)
 
     createAssignment(assignmentToCreate);
 
@@ -383,6 +417,7 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
     setWordSearchWords([]);
     setNewWordSearchWord('');
     setNewWordSearchDefinition('');
+    setNewWordSearchDifficulty('')
   };
 
   const handleDeleteAssignment = (id: string, title: string) => {
@@ -481,9 +516,10 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
 
   const addWordSearchWord = () => {
     if (newWordSearchWord.trim() && newWordSearchDefinition.trim()) {
-      setWordSearchWords([...wordSearchWords, { word: newWordSearchWord.trim(), definition: newWordSearchDefinition.trim() }]);
+      setWordSearchWords([...wordSearchWords, { word: newWordSearchWord.trim(), definition: newWordSearchDefinition.trim(), difficulty:newWordSearchDifficulty }]);
       setNewWordSearchWord('');
       setNewWordSearchDefinition('');
+      setNewWordSearchDifficulty('')
     }
   };
 
@@ -715,6 +751,11 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
                       placeholder="Definition"
                       value={newWordSearchDefinition}
                       onChange={(e) => setNewWordSearchDefinition(e.target.value)}
+                    />
+                    <Input
+                      placeholder="easy | medium | hard"
+                      value={newWordSearchDifficulty}
+                      onChange={(e) => setNewWordSearchDifficulty(e.target.value)}
                     />
                     <Button onClick={addWordSearchWord} type="button">Add</Button>
                   </div>

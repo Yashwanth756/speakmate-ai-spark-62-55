@@ -367,5 +367,120 @@ def update_vocab():
 
 
 
+@app.route('/update-wordsearch', methods=['POST'])
+def update_wordsearch():
+    data = request.json
+    class_name = data.get('classes')
+    section = data.get('section')
+    words = data.get('words', [])
+
+    if not class_name or not section:
+        return jsonify({"message": "Missing classes or section"}), 400
+
+    if not words:
+        return jsonify({"message": "No words to add"}), 400
+
+    # Build updates per level
+    push_updates = {}
+
+    for item in words:
+        difficulty = item.get('difficulty')
+        level = DIFFICULTY_MAP.get(difficulty)
+
+        if not level:
+            continue  # skip if difficulty invalid
+
+        word_doc = {
+            "word": item.get('word'),
+            "hint": item.get('definition'),
+            "solved": False
+        }
+
+        field_path = f"wordsearch.{level}.words"
+        if field_path not in push_updates:
+            push_updates[field_path] = {"$each": []}
+        push_updates[field_path]["$each"].append(word_doc)
+
+    if not push_updates:
+        return jsonify({"message": "No valid words to add"}), 400
+
+    # Update all matching documents
+    result = collection.update_many(
+        {
+            "classes": class_name,
+            "sections": section
+        },
+        {
+            "$push": push_updates
+        }
+    )
+
+    if result.modified_count:
+        return jsonify({"message": f"Updated {result.modified_count} students successfully"})
+    else:
+        return jsonify({"message": "No matching students found or no updates performed"}), 404
+
+
+def reset_int_bool(value):
+    if isinstance(value, bool):
+        return False
+    elif isinstance(value, int):
+        return 0
+    elif isinstance(value, list):
+        return [reset_int_bool(item) for item in value]
+    elif isinstance(value, dict):
+        return {k: reset_int_bool(v) for k, v in value.items()}
+    else:
+        return value
+def create_new_document(template, new_email, new_classes, new_sections, new_password, new_fullName, new_role):
+    new_doc = {}
+    for key, value in template.items():
+        if key == '_id':
+            continue
+        elif key == 'email':
+            new_doc['email'] = new_email
+        elif key == 'classes':
+            new_doc['classes'] = new_classes
+        elif key == 'sections':
+            new_doc['sections'] = new_sections
+        elif key == 'password':
+            new_doc['password'] = new_password
+        elif key == 'fullName':
+            new_doc['fullName'] = new_fullName
+        elif key == 'role':
+            new_doc['role'] = new_role
+        else:
+            new_doc[key] = reset_int_bool(value)
+    return new_doc
+@app.route('/create_account', methods=['POST'])
+def create_account():
+    data = request.get_json()
+    email = data.get('email')
+    classes = data.get('classes', [])
+    sections = data.get('section', [])
+    password = data.get('password')
+    fullName = data.get('fullName')
+    role = data.get('role')
+    print(classes, sections, password)
+
+    if not email or not classes or not sections:
+        return jsonify({'status': 'error', 'message': 'Missing fields'}), 400
+
+    if collection.find_one({"email": email}):
+        return jsonify({'status': 'exists', 'message': 'Account already exists'}), 200
+
+    template = collection.find_one({"email": "student1@gmail.com"})
+    if not template:
+        return jsonify({'status': 'error', 'message': 'Template student not found'}), 500
+
+    new_doc = create_new_document(template, email, classes, sections, password, fullName, role)
+    collection.insert_one(new_doc)
+    # print(new_doc)
+
+    return jsonify({'status': 'success', 'message': 'Account created'}), 201
+
+
+
+
 if __name__ == '__main__':
     app.run(debug=True)

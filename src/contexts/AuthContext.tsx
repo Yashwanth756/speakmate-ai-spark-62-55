@@ -109,14 +109,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     return false;
   };
+      // send.ts
+    async function createStudentAccount(email: string, classes, section, password: string, fullName: string, role) {
+      console.log('Creating student account:', { email, classes, section, password });
+      try {
+        const res = await fetch('http://localhost:5000/create_account', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email,
+            classes,
+            section,
+            password,
+            fullName,
+            role
+          }),
+        });
+
+        const data = await res.json();
+        console.log(data);
+        
+        return data;
+      } catch (err) {
+        console.error('Error:', err);
+        throw err;
+      }
+    }
+
 
   const register = async (userData: RegisterData): Promise<boolean> => {
     // Simulate API call - check if user already exists
-    const existingUser = MOCK_USERS.find(u => u.email === userData.email);
+    // const existingUser = MOCK_USERS.find(u => u.email === userData.email);/
     
-    if (existingUser) {
-      return false; // User already exists
-    }
+    // if (existingUser) {
+    //   return false; // User already exists
+    // }
 
     // Create new user
     const newUser: User = {
@@ -127,9 +156,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       classes: userData.classes,
       sections: userData.sections
     };
-
+    let data = await createStudentAccount(userData.email, userData.classes, userData.sections, userData.password, userData.fullName, userData.role );
+    if (data.status === "exists") {
+        // alert("Warning: Account already exists!");
+        return false;
+      }
     // Add to mock database
-    MOCK_USERS.push(newUser);
+    // MOCK_USERS.push(newUser);
     
     return true;
   };

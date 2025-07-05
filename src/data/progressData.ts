@@ -7,7 +7,7 @@ const getUserData = async () => {
   const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
   let email;
   // if (userSession.role == 'student')
-  email = userSession.email || "test4@gmail.com";
+  email = userSession.email || "student1@gmail.com";
   // else email = userSession.email || "teacher@echo.ai"
   const response = await fetch("http://localhost:5000/getUserData", {
         method: "POST",
@@ -25,7 +25,6 @@ export const getData = async () => {
   data = await getUserData();
   console.log(data['wordscramble'])
 }
-
 
 export const overallProgress = {
   speaking: 65,

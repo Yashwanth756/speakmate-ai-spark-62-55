@@ -29,7 +29,7 @@ let currentTopic = ''; // Track topic to force reset if topic changes
 // Model configuration with updated models that have better compatibility
 const MODELS = {
   PRIMARY: "gemini-1.5-flash", // Updated as recommended for better compatibility
-  FALLBACK: "gemini-pro",      // Legacy model as fallback
+  // FALLBACK: "gemini-pro",      // Legacy model as fallback
 };
 
 // Reset the chat history for a new conversation

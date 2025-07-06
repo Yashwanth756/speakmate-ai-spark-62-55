@@ -153,6 +153,28 @@ export const AssignmentProvider: React.FC<{ children: ReactNode }> = ({ children
   };
 
   const deleteAssignment = (id: string) => {
+    async function deleteAssignmentfromserver(assignmentId: string) {
+      try {
+        const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
+        const email = user?.email || userSession.email || "";
+        const response = await fetch('http://localhost:5000/delete-assignment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, id: assignmentId })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          console.log('Deleted successfully:', data);
+          // Maybe refresh assignments or update state here
+        } else {
+          console.error('Error deleting:', data);
+        }
+      } catch (error) {
+        console.error('Network error:', error);
+      }
+    }
+    deleteAssignmentfromserver(id)
     setAssignments(prev => prev.filter(assignment => assignment.id !== id));
     setStudentProgress(prev => prev.filter(progress => progress.assignmentId !== id));
   };

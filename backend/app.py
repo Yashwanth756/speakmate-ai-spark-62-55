@@ -505,5 +505,135 @@ def get_assignments():
     print(assignments)
     return jsonify({"assignments": assignments}), 200
 
+@app.route('/add-assignment', methods=['POST'])
+def add_assignment():
+    data = request.get_json()
+    email = data.get('email')
+    assignment = data.get('newAssignment')
+
+    if not email or not assignment:
+        return jsonify({"error": "Missing email or assignment data"}), 400
+
+    # Find teacher document
+    teacher_doc = collection.find_one({"email": email})
+
+    if teacher_doc:
+        # If assignments field exists, append
+        if 'assignments' in teacher_doc:
+            collection.update_one(
+                {"email": email},
+                {"$push": {"assignments": assignment}}
+            )
+        else:
+            # Create new assignments array
+            collection.update_one(
+                {"email": email},
+                {"$set": {"assignments": [assignment]}}
+            )
+        return jsonify({"message": "Assignment added successfully."})
+    else:
+        return jsonify({"error": "Teacher not found"}), 404
+
+
+@app.route("/delete-assignment", methods=["POST"])
+def delete_assignment():
+    data = request.get_json()
+    email = data.get("email")
+    assignment_id = data.get("id")
+
+    if not email or not assignment_id:
+        return jsonify({"error": "Missing email or assignment_id"}), 400
+
+    teacher = collection.find_one({"email": email})
+    if not teacher:
+        return jsonify({"error": "Teacher not found"}), 404
+
+    assignment = next((a for a in teacher.get("assignments", []) if a.get("id") == assignment_id), None)
+    if not assignment:
+        return jsonify({"error": "Assignment not found"}), 404
+
+    assignment_type = assignment["type"]
+    target_class = assignment["targetClass"]
+    target_section = assignment["targetSection"]
+    metadata = assignment.get("metadata", {})
+
+    word = None
+    difficulty = None
+    update_action = None
+
+    if assignment_type == "word_scramble":
+        word_info = metadata.get("scrambleWords", [{}])[0]
+        word = word_info.get("word")
+        difficulty = word_info.get("difficulty")
+
+        # Step 1: Find all users with matching class and section
+        users = collection.find({
+            "classes": target_class,
+            "sections": target_section
+        })
+
+        modified_count = 0
+
+        for user in users:
+            scramble_list = user.get("wordscramble", {}).get(difficulty, [])
+            matched_item = next((item for item in scramble_list if item[0] == word), None)
+
+            if matched_item:
+                collection.update_one(
+                    {"_id": user["_id"]},
+                    {"$pull": {f"wordscramble.{difficulty}": matched_item}}
+                )
+                modified_count += 1
+
+    elif assignment_type == "word_search":
+        word_info = metadata.get("searchWords", [{}])[0]
+        word = word_info.get("word")
+        difficulty = word_info.get("difficulty")
+        difficulty = DIFFICULTY_MAP[difficulty]
+
+        update_action = {
+            "$pull": {
+                f"wordsearch.{difficulty}.words": {"word": word}
+            }
+        }
+
+    elif assignment_type == "vocabulary_builder":
+        word_info = metadata.get("vocabularyWords", [{}])[0]
+        word = word_info.get("word")
+        difficulty = word_info.get("difficulty")
+        difficulty = DIFFICULTY_MAP[difficulty]
+
+        update_action = {
+            "$pull": {
+                f"vocabularyArchade.{difficulty}.wordDetails": {"word": word}
+            }
+        }
+
+    else:
+        return jsonify({"error": "Unknown assignment type"}), 400
+
+    # Step 2: Remove the assignment from teacher
+    collection.update_one(
+        {"email": email},
+        {"$pull": {"assignments": {"id": assignment_id}}}
+    )
+
+    # Step 3: For word_search or vocabulary_builder, apply bulk update
+    if assignment_type in ["word_search", "vocabulary_builder"]:
+        result = collection.update_many(
+            {"classes": target_class, "sections": target_section},
+            update_action
+        )
+        modified_count = result.modified_count
+
+    return jsonify({
+        "success": True,
+        "assignmentDeleted": True,
+        "wordDeleted": word,
+        "usersModified": modified_count
+    }), 200
+
+
+
 if __name__ == '__main__':
     app.run(debug=True)

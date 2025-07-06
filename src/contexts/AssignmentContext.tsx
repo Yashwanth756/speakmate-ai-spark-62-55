@@ -16,6 +16,17 @@ export interface Assignment {
   isRequired?: boolean;
   metadata?: {
     words?: string[];
+    scrambleWords?: Array<{word: string, difficulty: 'easy' | 'medium' | 'hard'}>
+    vocabularyWords: Array<{
+    word: string,
+    definition: string,
+    wrongDefinitions: string[],
+    partOfSpeech: string,
+    hint: string,
+    example: string,
+    difficulty?: 'easy' | 'medium' | 'hard'
+  }>;
+  searchWords?: Array<{word: string, definition: string, difficulty:string}>
     difficulty?: string;
     timeLimit?: number;
     maxAttempts?: number;
@@ -153,6 +164,30 @@ export const AssignmentProvider: React.FC<{ children: ReactNode }> = ({ children
       isRequired: true // New assignments are required by default
     };
     setAssignments(prev => [...prev, newAssignment]);
+    // console.log('New Assignment Created:', newAssignment);
+    const sendAssignment = async () => {
+      try {
+        const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
+        let email = userSession.email || "";
+        console.log('user updates', email)
+        const response = await fetch('http://localhost:5000/add-assignment', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: email,
+            newAssignment
+          }),
+        });
+
+        const data = await response.json();
+        console.log(data);
+      } catch (error) {
+        console.error('Error sending assignment:', error);
+      }
+    };
+    sendAssignment()
   };
 
   const updateAssignment = (id: string, updates: Partial<Assignment>) => {

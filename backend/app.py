@@ -480,7 +480,32 @@ def create_account():
     return jsonify({'status': 'success', 'message': 'Account created'}), 201
 
 
+@app.route('/get-assignments', methods=['POST'])
+def get_assignments():
+    data = request.get_json()
 
+    email = data.get('email')
+    teacher_classes = data.get('teacherClass')
+    sections = data.get('section')
+
+    if not email or not teacher_classes or not sections:
+        return jsonify({"error": "Missing email, teacherClass, or section"}), 400
+
+    # Fetch teacher document
+    teacher_doc = collection.find_one({"email": email})
+    
+    if not teacher_doc:
+        return jsonify({"error": "Teacher not found"}), 404
+
+    assignments = teacher_doc.get('assignments', [])
+    
+    # Filter assignments by matching class and section
+    filtered_assignments = [
+        a for a in assignments
+        if a.get('targetClass') in teacher_classes and a.get('targetSection') in sections
+    ]
+    print(filtered_assignments)
+    return jsonify({"assignments": filtered_assignments}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

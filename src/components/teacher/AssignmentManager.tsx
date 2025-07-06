@@ -47,14 +47,14 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [newAssignment, setNewAssignment] = useState<{
-    type: 'reflex' | 'story' | 'puzzle' | 'quick_quiz' | 'word_scramble' | 'vocabulary_builder' | 'word_search',
+    type:  'word_scramble' | 'vocabulary_builder' | 'word_search',
     title: string,
     content: string,
     dueDate: string,
     isRequired: boolean,
     metadata: any
   }>({
-    type: 'reflex',
+    type: 'word_scramble',
     title: '',
     content: '',
     dueDate: '',
@@ -103,7 +103,7 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
 
 
   // Reset form when type changes (for clarity)
-  const handleAssignmentTypeChange = (type: 'reflex' | 'story' | 'puzzle' | 'quick_quiz' | 'word_scramble' | 'vocabulary_builder' | 'word_search') => {
+  const handleAssignmentTypeChange = (type: 'word_scramble' | 'vocabulary_builder' | 'word_search') => {
     setNewAssignment({
       type,
       title: '',
@@ -112,14 +112,14 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
       isRequired: true,
       metadata: {}
     });
-    if (type === 'puzzle') {
-      setPuzzleWords([]);
-      setPuzzleWordInput('');
-    }
-    if (type === 'quick_quiz') {
-      setQuizQuestions([{ question: '', answer: '' }]);
-      setQuizTimer(60);
-    }
+    // if (type === 'puzzle') {
+    //   setPuzzleWords([]);
+    //   setPuzzleWordInput('');
+    // }
+    // if (type === 'quick_quiz') {
+    //   setQuizQuestions([{ question: '', answer: '' }]);
+    //   setQuizTimer(60);
+    // }
     if (type === 'word_scramble') {
       setScrambleWords([]);
       setNewScrambleWord('');
@@ -146,6 +146,7 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
   };
 
   const teacherAssignments = getAssignmentsForTeacher(user?.classes || [], user?.sections || []);
+  // console.log('Teacher Assignments:', teacherAssignments);
   const filteredAssignments = teacherAssignments.filter(assignment =>
     (!selectedClass || selectedClass === 'all-classes' || assignment.targetClass === selectedClass) &&
     (!selectedSection || selectedSection === 'all-sections' || assignment.targetSection === selectedSection)
@@ -154,16 +155,17 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
   const handleCreateAssignment = () => {
     // Validation per type:
     
-    if (newAssignment.type === 'quick_quiz') {
-      if (!newAssignment.title.trim() || quizQuestions.length === 0 || quizQuestions.some(q => !q.question.trim() || !q.answer.trim())) {
-        toast({
-          title: "Quiz Incomplete",
-          description: "Please provide the quiz title and all questions and answers.",
-          variant: "destructive"
-        });
-        return;
-      }
-    } else if (newAssignment.type === 'word_scramble') {
+    // if (newAssignment.type === 'quick_quiz') {
+    //   if (!newAssignment.title.trim() || quizQuestions.length === 0 || quizQuestions.some(q => !q.question.trim() || !q.answer.trim())) {
+    //     toast({
+    //       title: "Quiz Incomplete",
+    //       description: "Please provide the quiz title and all questions and answers.",
+    //       variant: "destructive"
+    //     });
+    //     return;
+    //   }
+    // } 
+     if (newAssignment.type === 'word_scramble') {
       if (!newAssignment.title.trim() || scrambleWords.length === 0) {
         toast({
           title: "Word Scramble Incomplete",
@@ -208,38 +210,51 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
 
     let assignmentToCreate: Omit<Assignment, 'id' | 'createdAt' | 'updatedAt'>;
 
-    if (newAssignment.type === 'puzzle') {
-      assignmentToCreate = {
-        ...newAssignment,
-        title: newAssignment.title || 'Word Puzzle',
-        content: newAssignment.content || 'Word puzzle assignment',
-        targetClass: selectedClass,
-        targetSection: selectedSection,
-        createdBy: user?.fullName || 'Unknown Teacher',
-        status: "published",
-        metadata: { ...newAssignment.metadata, puzzleWords: puzzleWords }
-      };
-      console.log(puzzleWords);
-    } else if (newAssignment.type === 'story') {
-      assignmentToCreate = {
-        ...newAssignment,
-        targetClass: selectedClass,
-        targetSection: selectedSection,
-        createdBy: user?.fullName || 'Unknown Teacher',
-        status: "published",
-        metadata: {}
-      };
-    } else if (newAssignment.type === 'reflex') {
-      assignmentToCreate = {
-        ...newAssignment,
-        title: newAssignment.title || 'Reflex Challenge',
-        targetClass: selectedClass,
-        targetSection: selectedSection,
-        createdBy: user?.fullName || 'Unknown Teacher',
-        status: "published",
-        metadata: {}
-      };
-    } else if (newAssignment.type === 'quick_quiz') {
+    // if (newAssignment.type === 'puzzle') {
+    //   assignmentToCreate = {
+    //     ...newAssignment,
+    //     title: newAssignment.title || 'Word Puzzle',
+    //     content: newAssignment.content || 'Word puzzle assignment',
+    //     targetClass: selectedClass,
+    //     targetSection: selectedSection,
+    //     createdBy: user?.fullName || 'Unknown Teacher',
+    //     status: "published",
+    //     metadata: { ...newAssignment.metadata, puzzleWords: puzzleWords }
+    //   };
+    //   console.log(puzzleWords);
+    // } else if (newAssignment.type === 'story') {
+    //   assignmentToCreate = {
+    //     ...newAssignment,
+    //     targetClass: selectedClass,
+    //     targetSection: selectedSection,
+    //     createdBy: user?.fullName || 'Unknown Teacher',
+    //     status: "published",
+    //     metadata: {}
+    //   };
+    // } else if (newAssignment.type === 'reflex') {
+    //   assignmentToCreate = {
+    //     ...newAssignment,
+    //     title: newAssignment.title || 'Reflex Challenge',
+    //     targetClass: selectedClass,
+    //     targetSection: selectedSection,
+    //     createdBy: user?.fullName || 'Unknown Teacher',
+    //     status: "published",
+    //     metadata: {}
+    //   };
+    // } else if (newAssignment.type === 'quick_quiz') {
+    //   assignmentToCreate = {
+    //     ...newAssignment,
+    //     targetClass: selectedClass,
+    //     targetSection: selectedSection,
+    //     createdBy: user?.fullName || 'Unknown Teacher',
+    //     status: "published",
+    //     metadata: {
+    //       quizTimer,
+    //       questions: quizQuestions
+    //     }
+    //   };
+    // } 
+     if (newAssignment.type === 'word_scramble') {
       assignmentToCreate = {
         ...newAssignment,
         targetClass: selectedClass,
@@ -247,22 +262,11 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
         createdBy: user?.fullName || 'Unknown Teacher',
         status: "published",
         metadata: {
-          quizTimer,
-          questions: quizQuestions
+          scrambleWords: scrambleWords,
+          // vocabularyWords: []
         }
       };
-    } else if (newAssignment.type === 'word_scramble') {
-      assignmentToCreate = {
-        ...newAssignment,
-        targetClass: selectedClass,
-        targetSection: selectedSection,
-        createdBy: user?.fullName || 'Unknown Teacher',
-        status: "published",
-        metadata: {
-          scrambleWords: scrambleWords
-        }
-      };
-      console.log(scrambleWords);
+      console.log(scrambleWords, assignmentToCreate);
       const wordsToAdd = scrambleWords
 
       const sendWordsToServer = async () => {
@@ -555,10 +559,10 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="reflex">Reflex Challenge</SelectItem>
-                    <SelectItem value="story">Story Builder</SelectItem>
-                    <SelectItem value="puzzle">Word Puzzle</SelectItem>
-                    <SelectItem value="quick_quiz">Quick Quiz</SelectItem>
+                    {/* <SelectItem value="reflex">Reflex Challenge</SelectItem> */}
+                    {/* <SelectItem value="story">Story Builder</SelectItem> */}
+                    {/* <SelectItem value="puzzle">Word Puzzle</SelectItem> */}
+                    {/* <SelectItem value="quick_quiz">Quick Quiz</SelectItem> */}
                     <SelectItem value="word_scramble">Word Scramble</SelectItem>
                     <SelectItem value="vocabulary_builder">Vocabulary Builder</SelectItem>
                     <SelectItem value="word_search">Word Search</SelectItem>

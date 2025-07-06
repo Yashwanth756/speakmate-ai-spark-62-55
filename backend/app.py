@@ -559,30 +559,38 @@ def delete_assignment():
 
     word = None
     difficulty = None
-    update_action = None
+    modified_count = 0
 
     if assignment_type == "word_scramble":
         word_info = metadata.get("scrambleWords", [{}])[0]
         word = word_info.get("word")
         difficulty = word_info.get("difficulty")
 
-        # Step 1: Find all users with matching class and section
         users = collection.find({
             "classes": target_class,
             "sections": target_section
         })
-
-        modified_count = 0
 
         for user in users:
             scramble_list = user.get("wordscramble", {}).get(difficulty, [])
             matched_item = next((item for item in scramble_list if item[0] == word), None)
 
             if matched_item:
+                # Check if word was solved
+                was_solved = matched_item[2] == True
+
+                # Remove the word entry
                 collection.update_one(
                     {"_id": user["_id"]},
                     {"$pull": {f"wordscramble.{difficulty}": matched_item}}
                 )
+
+                # If solved, decrement score
+                if was_solved:
+                    collection.update_one(
+                        {"_id": user["_id"]},
+                        {"$inc": {f"wordscramble.{difficulty}score.score": -1}}
+                    )
                 modified_count += 1
 
     elif assignment_type == "word_search":
@@ -591,11 +599,31 @@ def delete_assignment():
         difficulty = word_info.get("difficulty")
         difficulty = DIFFICULTY_MAP[difficulty]
 
-        update_action = {
-            "$pull": {
-                f"wordsearch.{difficulty}.words": {"word": word}
-            }
-        }
+        users = collection.find({
+            "classes": target_class,
+            "sections": target_section
+        })
+
+        for user in users:
+            words = user.get("wordsearch", {}).get(difficulty, {}).get("words", [])
+            matched_word = next((w for w in words if w["word"] == word), None)
+
+            if matched_word:
+                was_solved = matched_word.get("solved", False)
+
+                # Remove the word
+                collection.update_one(
+                    {"_id": user["_id"]},
+                    {"$pull": {f"wordsearch.{difficulty}.words": {"word": word}}}
+                )
+
+                # Decrement score if needed
+                if was_solved:
+                    collection.update_one(
+                        {"_id": user["_id"]},
+                        {"$inc": {f"wordsearch.{difficulty}.score": -1}}
+                    )
+                modified_count += 1
 
     elif assignment_type == "vocabulary_builder":
         word_info = metadata.get("vocabularyWords", [{}])[0]
@@ -603,28 +631,40 @@ def delete_assignment():
         difficulty = word_info.get("difficulty")
         difficulty = DIFFICULTY_MAP[difficulty]
 
-        update_action = {
-            "$pull": {
-                f"vocabularyArchade.{difficulty}.wordDetails": {"word": word}
-            }
-        }
+        users = collection.find({
+            "classes": target_class,
+            "sections": target_section
+        })
+
+        for user in users:
+            details = user.get("vocabularyArchade", {}).get(difficulty, {}).get("wordDetails", [])
+            matched_word = next((w for w in details if w["word"] == word), None)
+
+            if matched_word:
+                was_solved = matched_word.get("isSolved", False)
+
+                # Remove the word
+                collection.update_one(
+                    {"_id": user["_id"]},
+                    {"$pull": {f"vocabularyArchade.{difficulty}.wordDetails": {"word": word}}}
+                )
+
+                # Decrement score if solved
+                if was_solved:
+                    collection.update_one(
+                        {"_id": user["_id"]},
+                        {"$inc": {f"vocabularyArchade.{difficulty}.score": -1}}
+                    )
+                modified_count += 1
 
     else:
         return jsonify({"error": "Unknown assignment type"}), 400
 
-    # Step 2: Remove the assignment from teacher
+    # Remove assignment from teacher
     collection.update_one(
         {"email": email},
         {"$pull": {"assignments": {"id": assignment_id}}}
     )
-
-    # Step 3: For word_search or vocabulary_builder, apply bulk update
-    if assignment_type in ["word_search", "vocabulary_builder"]:
-        result = collection.update_many(
-            {"classes": target_class, "sections": target_section},
-            update_action
-        )
-        modified_count = result.modified_count
 
     return jsonify({
         "success": True,
@@ -632,8 +672,6 @@ def delete_assignment():
         "wordDeleted": word,
         "usersModified": modified_count
     }), 200
-
-
 
 if __name__ == '__main__':
     app.run(debug=True)

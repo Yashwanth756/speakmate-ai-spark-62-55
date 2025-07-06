@@ -25,8 +25,10 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { title } from "process";
 
 const navItems = [
+  // { title: "teacher dashboard", route: "/teacher/dashboard", icon: ArrowLeft },
   { title: "Dashboard", route: "/", icon: LayoutDashboard },
   { title: "Speaking Practice", route: "/speaking", icon: Mic },
   { title: "Conversation AI", route: "/conversation", icon: MessageSquare },

@@ -3,7 +3,7 @@ import { useAuth } from './AuthContext';
 
 export interface Assignment {
   id: string;
-  type: 'reflex' | 'story' | 'puzzle' | 'quick_quiz'; // Add quick_quiz
+  type: 'reflex' | 'story' | 'puzzle' | 'quick_quiz';
   title: string;
   content: string;
   targetClass: string;
@@ -16,22 +16,21 @@ export interface Assignment {
   isRequired?: boolean;
   metadata?: {
     words?: string[];
-    scrambleWords?: Array<{word: string, difficulty: 'easy' | 'medium' | 'hard'}>
+    scrambleWords?: Array<{word: string, difficulty: 'easy' | 'medium' | 'hard'}>;
     vocabularyWords: Array<{
-    word: string,
-    definition: string,
-    wrongDefinitions: string[],
-    partOfSpeech: string,
-    hint: string,
-    example: string,
-    difficulty?: 'easy' | 'medium' | 'hard'
-  }>;
-  searchWords?: Array<{word: string, definition: string, difficulty:string}>
+      word: string;
+      definition: string;
+      wrongDefinitions: string[];
+      partOfSpeech: string;
+      hint: string;
+      example: string;
+      difficulty?: 'easy' | 'medium' | 'hard';
+    }>;
+    searchWords?: Array<{word: string, definition: string, difficulty:string}>;
     difficulty?: string;
     timeLimit?: number;
     maxAttempts?: number;
-    // Quick Quiz fields
-    quizTimer?: number; // seconds
+    quizTimer?: number;
     questions?: {
       question: string;
       answer: string;
@@ -66,78 +65,6 @@ interface AssignmentContextType {
 
 const AssignmentContext = createContext<AssignmentContextType | undefined>(undefined);
 
-// Mock data for demonstration
-const MOCK_ASSIGNMENTS: Assignment[] = [
-  {
-    id: '1',
-    type: 'reflex',
-    title: 'Environmental Conservation Challenge',
-    content: 'Describe the importance of environmental conservation in modern society.',
-    targetClass: 'Class 8',
-    targetSection: 'A',
-    createdBy: 'Ms. Johnson',
-    createdAt: '2024-06-10T10:00:00Z',
-    updatedAt: '2024-06-10T10:00:00Z',
-    dueDate: '2024-06-15T23:59:59Z',
-    status: 'published',
-    isRequired: true,
-    metadata: {
-      timeLimit: 300 // 5 minutes
-    }
-  },
-  {
-    id: '2',
-    type: 'story',
-    title: 'The Time Traveler\'s Dilemma',
-    content: 'Sarah discovered an old pocket watch in her grandmother\'s attic. When she wound it, strange things began to happen...',
-    targetClass: 'Class 8',
-    targetSection: 'A',
-    createdBy: 'Ms. Johnson',
-    createdAt: '2024-06-11T09:00:00Z',
-    updatedAt: '2024-06-11T09:00:00Z',
-    status: 'published',
-    isRequired: false
-  },
-  {
-    id: '3',
-    type: 'puzzle',
-    title: 'Science Vocabulary Challenge',
-    content: 'Word puzzle focusing on scientific terminology',
-    targetClass: 'Class 8',
-    targetSection: 'A',
-    createdBy: 'Ms. Johnson',
-    createdAt: '2024-06-09T14:00:00Z',
-    updatedAt: '2024-06-09T14:00:00Z',
-    status: 'published',
-    isRequired: false,
-    metadata: {
-      words: ['experiment', 'hypothesis', 'analysis', 'conclusion', 'laboratory'],
-      difficulty: 'medium',
-      maxAttempts: 3
-    }
-  },
-  {
-    id: '4',
-    type: 'quick_quiz',
-    title: 'English Quick Quiz - Sample',
-    content: 'A timed quiz. Answer all questions!',
-    targetClass: 'Class 8',
-    targetSection: 'A',
-    createdBy: 'Ms. Johnson',
-    createdAt: '2024-06-12T15:00:00Z',
-    updatedAt: '2024-06-12T15:00:00Z',
-    status: 'published',
-    isRequired: false,
-    metadata: {
-      quizTimer: 120,
-      questions: [
-        { question: 'What is the synonym for "happy"?', answer: 'joyful' },
-        { question: 'Spell the opposite of "success".', answer: 'failure' }
-      ]
-    }
-  }
-];
-
 const MOCK_PROGRESS: StudentProgress[] = [
   {
     assignmentId: '3',
@@ -152,8 +79,44 @@ const MOCK_PROGRESS: StudentProgress[] = [
 
 export const AssignmentProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const [assignments, setAssignments] = useState<Assignment[]>(MOCK_ASSIGNMENTS);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [studentProgress, setStudentProgress] = useState<StudentProgress[]>(MOCK_PROGRESS);
+
+  // ✅ Fetch assignments for logged-in teacher
+  useEffect(() => {
+    const fetchAssignmentsForTeacher = async () => {
+      try {
+        const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
+        const email = user?.email || userSession.email || "";
+
+        if (!email) {
+          console.warn("No teacher email found, skipping fetch.");
+          return;
+        }
+
+        const res = await fetch('http://localhost:5000/get-assignments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+        const data = await res.json();
+
+        if (Array.isArray(data.assignments)) {
+          setAssignments(data.assignments);
+        } else {
+          console.warn('Invalid assignments format from server:', data);
+          setAssignments([]);
+        }
+      } catch (err) {
+        console.error('Error fetching assignments for teacher:', err);
+        setAssignments([]);
+      }
+    };
+
+    fetchAssignmentsForTeacher();
+  }, [user]);
 
   const createAssignment = (assignmentData: Omit<Assignment, 'id' | 'createdAt' | 'updatedAt'>) => {
     const newAssignment: Assignment = {
@@ -161,38 +124,29 @@ export const AssignmentProvider: React.FC<{ children: ReactNode }> = ({ children
       id: Math.random().toString(36).substr(2, 9),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      isRequired: true // New assignments are required by default
+      isRequired: true
     };
     setAssignments(prev => [...prev, newAssignment]);
-    // console.log('New Assignment Created:', newAssignment);
+
     const sendAssignment = async () => {
       try {
         const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
-        let email = userSession.email || "";
-        console.log('user updates', email)
-        const response = await fetch('http://localhost:5000/add-assignment', {
+        const email = user?.email || userSession.email || "";
+        await fetch('http://localhost:5000/add-assignment', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: email,
-            newAssignment
-          }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, newAssignment })
         });
-
-        const data = await response.json();
-        console.log(data);
       } catch (error) {
         console.error('Error sending assignment:', error);
       }
     };
-    sendAssignment()
+    sendAssignment();
   };
 
   const updateAssignment = (id: string, updates: Partial<Assignment>) => {
-    setAssignments(prev => prev.map(assignment => 
-      assignment.id === id 
+    setAssignments(prev => prev.map(assignment =>
+      assignment.id === id
         ? { ...assignment, ...updates, updatedAt: new Date().toISOString() }
         : assignment
     ));
@@ -208,15 +162,15 @@ export const AssignmentProvider: React.FC<{ children: ReactNode }> = ({ children
   };
 
   const getAssignmentsForStudent = (studentClass: string, studentSection: string) => {
-    return assignments.filter(assignment => 
-      assignment.targetClass === studentClass && 
+    return assignments.filter(assignment =>
+      assignment.targetClass === studentClass &&
       assignment.targetSection === studentSection &&
       assignment.status === 'published'
     );
   };
 
   const getAssignmentsForTeacher = (teacherClasses: string[], teacherSections: string[]) => {
-    return assignments.filter(assignment => 
+    return assignments.filter(assignment =>
       teacherClasses.includes(assignment.targetClass) &&
       teacherSections.includes(assignment.targetSection)
     );
@@ -224,10 +178,10 @@ export const AssignmentProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const updateStudentProgress = (progressData: Partial<StudentProgress> & { assignmentId: string; studentId: string }) => {
     setStudentProgress(prev => {
-      const existingIndex = prev.findIndex(p => 
+      const existingIndex = prev.findIndex(p =>
         p.assignmentId === progressData.assignmentId && p.studentId === progressData.studentId
       );
-      
+
       if (existingIndex >= 0) {
         const updated = [...prev];
         updated[existingIndex] = { ...updated[existingIndex], ...progressData, lastAttempt: new Date().toISOString() };

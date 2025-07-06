@@ -365,8 +365,6 @@ def update_vocab():
     else:
         return jsonify({"message": "No matching students found or no updates performed"}), 404
 
-
-
 @app.route('/update-wordsearch', methods=['POST'])
 def update_wordsearch():
     data = request.json
@@ -485,10 +483,10 @@ def get_assignments():
     data = request.get_json()
 
     email = data.get('email')
-    teacher_classes = data.get('teacherClass')
-    sections = data.get('section')
+    # teacher_classes = data.get('teacherClass')
+    # sections = data.get('section')
 
-    if not email or not teacher_classes or not sections:
+    if not email :
         return jsonify({"error": "Missing email, teacherClass, or section"}), 400
 
     # Fetch teacher document
@@ -499,13 +497,13 @@ def get_assignments():
 
     assignments = teacher_doc.get('assignments', [])
     
-    # Filter assignments by matching class and section
-    filtered_assignments = [
-        a for a in assignments
-        if a.get('targetClass') in teacher_classes and a.get('targetSection') in sections
-    ]
-    print(filtered_assignments)
-    return jsonify({"assignments": filtered_assignments}), 200
+    # # Filter assignments by matching class and section
+    # filtered_assignments = [
+    #     a for a in assignments
+    #     if a.get('targetClass') in teacher_classes and a.get('targetSection') in sections
+    # ]
+    print(assignments)
+    return jsonify({"assignments": assignments}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

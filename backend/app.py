@@ -467,7 +467,7 @@ def create_account():
     if collection.find_one({"email": email}):
         return jsonify({'status': 'exists', 'message': 'Account already exists'}), 200
 
-    template = collection.find_one({"email": "student1@gmail.com"})
+    template = collection.find_one({"email": "template"})
     if not template:
         return jsonify({'status': 'error', 'message': 'Template student not found'}), 500
 

@@ -4,7 +4,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const DEFAULT_API_KEY = "AIzaSyCc0ZYxEuoocwAZ5jKM8fWQEd0wz6sh4uI";
 const API_KEYS = [
   'AIzaSyBERkzxfo0L9qg8uWPt5YScDqmmIcvIkF4',
-  "AIzaSyCc0ZYxEuoocwAZ5jKM8fWQEd0wz6sh4uI"
+  "AIzaSyCc0ZYxEuoocwAZ5jKM8fWQEd0wz6sh4uI",
+  'AIzaSyCRk2Yipn_lreY__-KFoCI0Uvi8XAQlVyM'
   // Add more keys here if needed
 ];
 

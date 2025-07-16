@@ -34,6 +34,16 @@ export default function Speaking() {
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const apiKeys = [
+    
+  'AIzaSyBERkzxfo0L9qg8uWPt5YScDqmmIcvIkF4',
+  "AIzaSyCc0ZYxEuoocwAZ5jKM8fWQEd0wz6sh4uI",
+  'AIzaSyCRk2Yipn_lreY__-KFoCI0Uvi8XAQlVyM'
+  
+];
+
+const [apiKeyIndex, setApiKeyIndex] = useState(0);
+
   
   // Use the enhanced speech recognition hook
   const {
@@ -141,33 +151,37 @@ export default function Speaking() {
     setTranscript("");
   };
 
-  // Enhanced analyze function with better error handling and API communication
-  const handleAnalyze = async () => {
-    if (!transcript.trim()) {
-      toast.error("No transcript available. Please record some speech first.");
-      return;
-    }
-    
-    // Check if we have an API key
-    if (!apiKey) {
-      toast.error("No Gemini API key found. Please add one in settings.", {
-        action: {
-          label: "Settings",
-          onClick: () => navigate('/settings')
-        }
-      });
-      return;
-    }
-    
-    setLoading(true);
+ const handleAnalyze = async () => {
+  if (!transcript.trim()) {
+    toast.error("No transcript available. Please record some speech first.");
+    return;
+  }
+
+  if (!apiKeys.length) {
+    toast.error("No Gemini API keys provided. Please add them in settings.", {
+      action: {
+        label: "Settings",
+        onClick: () => navigate('/settings')
+      }
+    });
+    return;
+  }
+
+  setLoading(true);
+
+  let attempts = 0;
+  let success = false;
+  let lastErrorMessage = '';
+
+  while (attempts < apiKeys.length && !success) {
+    const currentKey = apiKeys[(apiKeyIndex + attempts) % apiKeys.length];
+
     try {
       const speechText = transcript;
-      
-      // Enhanced Gemini Prompt with clearer instructions:
       const prompt = [
-        {
-          parts: [{
-            text: `
+  {
+    parts: [{
+      text: `
 You are an expert English language coach with years of experience in teaching and providing detailed feedback. I am building a website to help users improve their English speaking skills using AI.
 
 I will provide you with a transcript of what the user has spoken. Based on that transcript, give a detailed, structured, and VERY ACCURATE feedback report with these sections:
@@ -224,81 +238,64 @@ Respond as clean JSON ONLY, using keys:
   "communication_tips": ["string"],
   "overall_summary": { "score": number, "level": "string", "recommendation": "string" }
 }
-`
-          }]
-        }
-      ];
+      `
+    }]
+  }
+];
 
-      // Updated API endpoint to use the most suitable model
+
       const apiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${currentKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contents: prompt }),
         }
       );
-      
-      // Log the API call for debugging
-      // console.log("API response status:", apiRes.status);
-      
+
+      if (apiRes.status === 429) {
+        // Rate limit -> rotate to next key
+        toast.warning(`API key ${attempts + 1} is rate-limited. Rotating...`);
+        attempts++;
+        continue;
+      }
+
       if (!apiRes.ok) {
         const errorText = await apiRes.text();
-        console.error("API error:", errorText);
-        
-        // More specific error handling based on status codes
-        if (apiRes.status === 400 && errorText.includes("API key not valid")) {
-          toast.error("Your API key is invalid. Please check your API key in Settings.", {
-            action: {
-              label: "Settings",
-              onClick: () => navigate('/settings')
-            }
-          });
-        } else if (apiRes.status === 429) {
-          toast.error("API rate limit exceeded. Please try again later or use a different API key.");
-        } else {
-          throw new Error(`API error (${apiRes.status}): ${errorText || "Unknown error"}`);
-        }
-        
-        setLoading(false);
-        return;
+        throw new Error(`API error (${apiRes.status}): ${errorText}`);
       }
-      
-      const json = await apiRes.json();
-      console.log("API response:", json);
 
-      // More robust JSON extraction logic
+      // Success
+      const json = await apiRes.json();
       const text = (json?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+
       let feedbackObj = null;
       try {
-        // Remove markdown code fences if present
         let cleanText = text;
         if (cleanText.startsWith("```json")) {
           cleanText = cleanText.replace(/^```json/, "").replace(/```$/, "").trim();
         } else if (cleanText.startsWith("```")) {
           cleanText = cleanText.replace(/^```/, "").replace(/```$/, "").trim();
         }
-        
-        // Try to find valid JSON in the response
+
         const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           feedbackObj = JSON.parse(jsonMatch[0]);
         } else {
           feedbackObj = JSON.parse(cleanText);
         }
-        
-        // Validate the parsed JSON has the expected structure
+
         if (!feedbackObj.corrected_version || !feedbackObj.scores) {
           throw new Error("Invalid response format");
         }
-        
+
       } catch (e) {
-        console.error("Error parsing JSON:", e);
         toast.error("Could not parse the AI response. Please try again.");
         feedbackObj = { raw: text, parsing_error: true };
       }
-       const currDay = {
-        date: new Date().toISOString().split('T')[0], // Current date in YYYY-MM-DD format
+
+      const currDay = {
+        date: new Date().toISOString().split('T')[0],
         day: new Date().toLocaleDateString("en-US", { weekday: "short" }),
         fullDate: new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit" }),
         speaking: feedbackObj.scores?.fluency?.score || 0,
@@ -310,18 +307,28 @@ Respond as clean JSON ONLY, using keys:
         totalTime: 0,
         sessionsCompleted: 0
       };
-      // console.log('starting update', dailyData())
+
       await handleDailyData(currDay);
-      // console.log("Updated daily data:", dailyData())
-      
-      
+
       setFeedback(feedbackObj);
-    } catch (e: any) {
-      console.error("Analysis error:", e);
-      toast.error("Analysis failed: " + (e.message || "Could not reach Gemini API. Please check your connection."));
+
+      // Update index so we use this key next time
+      setApiKeyIndex((apiKeyIndex + attempts) % apiKeys.length);
+      success = true;
+
+    } catch (err: any) {
+      lastErrorMessage = err.message;
+      console.error("Error:", err);
+      attempts++;
     }
-    setLoading(false);
-  };
+  }
+
+  if (!success) {
+    toast.error(`All API keys failed. Last error: ${lastErrorMessage}`);
+  }
+
+  setLoading(false);
+};
 
   // Highlight errors in transcript: error words displayed with a tooltip
   function highlightErrors(original: string, highlighted_errors?: any[]) {

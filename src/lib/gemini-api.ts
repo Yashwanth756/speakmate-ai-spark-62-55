@@ -1,260 +1,224 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// New Default API key (set for all users unless they set their own)
+// Default and rotating API keys
 const DEFAULT_API_KEY = "AIzaSyCc0ZYxEuoocwAZ5jKM8fWQEd0wz6sh4uI";
+const API_KEYS = [
+  'AIzaSyBERkzxfo0L9qg8uWPt5YScDqmmIcvIkF4',
+  "AIzaSyCc0ZYxEuoocwAZ5jKM8fWQEd0wz6sh4uI"
+  // Add more keys here if needed
+];
 
-// Initialize with a function to get the API key (from localStorage if available)
-const getApiKey = (): string => {
-  // If user has saved an API key, always use it.
-  const userProvidedKey = localStorage.getItem("gemini-api-key");
-  if (userProvidedKey !== null) {
-    // Respect empty string if they've intentionally removed it
-    return userProvidedKey.trim();
-  }
-  // If no saved key, use the new default
-  return DEFAULT_API_KEY;
-};
+let index = 0;
 
-// Create a function to get a fresh instance of the API with the current key
-const getGenAIInstance = (): GoogleGenerativeAI | null => {
-  const apiKey = getApiKey();
-  if (!apiKey) return null;
-  return new GoogleGenerativeAI(apiKey);
-};
-
-// Store chat instance for conversation continuity
-let chatInstance;
-let currentTopic = ''; // Track topic to force reset if topic changes
-
-// Model configuration with updated models that have better compatibility
+// Model configuration
 const MODELS = {
-  PRIMARY: "gemini-1.5-flash", // Updated as recommended for better compatibility
-  // FALLBACK: "gemini-pro",      // Legacy model as fallback
+  PRIMARY: "gemini-1.5-flash",
+  FALLBACK: "gemini-pro",
 };
 
-// Reset the chat history for a new conversation
+// Track chat instance for continuity
+let chatInstance: any = null;
+let currentTopic = "";
+
+/**
+ * API key rotation utilities
+ */
+function getCurrentKey(): string {
+  return API_KEYS[index];
+}
+
+function rotateKey(): string {
+  index = (index + 1) % API_KEYS.length;
+  return getCurrentKey();
+}
+
+/**
+ * Get a new GoogleGenerativeAI instance with the current key
+ */
+function getGenAI(): GoogleGenerativeAI {
+  console.log('current API key:', getCurrentKey());
+  return new GoogleGenerativeAI(getCurrentKey());
+}
+
+/**
+ * System prompt template
+ */
+function buildSystemPrompt(topic: string): string {
+  return `You are Iyraa, a warm, friendly, and intelligent English tutor AI designed to help users improve their English naturally and confidently.
+
+The current conversation topic is: ${topic}.
+
+***CRITICAL INSTRUCTIONS***:
+- Respond with EXACTLY ONE conversational reply directly answering the user's message
+- NEVER provide ANY grammar assessment, feedback, or comments on their language quality
+- NEVER start with phrases like "That's a good question" or "That's well expressed" or any similar commentary
+- DO NOT split your response into multiple messages or thoughts
+- Simply respond naturally as you would in a human conversation
+- Keep responses warm, concise, and conversational
+
+Begin the conversation by introducing yourself: "Hi, I'm Iyraa, your friendly English tutor. I'm here to help you practice conversational English in a natural, supportive way!"`;
+}
+
+/**
+ * Reset chat history
+ */
 export const resetChatHistory = (topic: string): void => {
   chatInstance = null;
   currentTopic = topic;
   console.log(`[Gemini API] Chat reset with topic: ${topic}`);
 };
 
-// Send message to Gemini and get response
-export const sendMessageToGemini = async (userMessage: string, topic: string): Promise<string> => {
+/**
+ * Main function to send a message to Gemini with retries
+ */
+export const sendMessageToGemini = async (
+  userMessage: string,
+  topic: string,
+  retriesLeft = API_KEYS.length
+): Promise<string> => {
+  
+  if (retriesLeft <= 0) {
+    return "All API keys have been exhausted. Please check your quota or add more API keys in Settings.";
+  }
+
   try {
-    // Get fresh instance with current API key
-    const genAI = getGenAIInstance();
-    if (!genAI) {
-      return "Please add your Gemini API key in the Settings page to use this feature.";
-    }
-    
-    // Try with primary model first
+    const genAI = getGenAI();
     let currentModel = MODELS.PRIMARY;
     let model = genAI.getGenerativeModel({ model: currentModel });
-
-    // Forcefully reset chat if topic changes
     if (topic !== currentTopic) {
       resetChatHistory(topic);
     }
-
-    // Initialize chat if it doesn't exist
-    if (!chatInstance) {
-      console.log(`[Gemini API] Initializing new chat instance for topic: ${topic} and model: ${currentModel}`);
-      // Create an updated system prompt ...
-      const systemPrompt = `You are Iyraa, a warm, friendly, and intelligent English tutor AI designed to help users improve their English naturally and confidently.
-
-      The current conversation topic is: ${topic}.
-      
-      ***CRITICAL INSTRUCTIONS***:
-      - Respond with EXACTLY ONE conversational reply directly answering the user's message
-      - NEVER provide ANY grammar assessment, feedback, or comments on their language quality
-      - NEVER start with phrases like "That's a good question" or "That's well expressed" or any similar commentary
-      - DO NOT split your response into multiple messages or thoughts
-      - Simply respond naturally as you would in a human conversation
-      - Keep responses warm, concise, and conversational
-      
-      Begin the conversation by introducing yourself: "Hi, I'm Iyraa, your friendly English tutor. I'm here to help you practice conversational English in a natural, supportive way!"`;
-      
-      try {
-        // Always start a new chat and fresh prompt
-        chatInstance = model.startChat({ history: [] });
-        // Send the system prompt as the very first message
-        const systemResult = await chatInstance.sendMessage(
-          `System instruction (please follow these guidelines): ${systemPrompt}`
-        );
-        await systemResult.response;
-        console.log("[Gemini API] System prompt sent after reset/init.");
-      } catch (error) {
-        console.error("[Gemini API] Error initializing chat:", error);
-        throw error;
-      }
-      // Always update the current topic tracking
+    // if (chatInstance) {
+      console.log(`[Gemini API] Initializing new chat for topic: ${topic} using model: ${currentModel}`);
+      chatInstance = model.startChat({ history: [] });
+      await (await chatInstance.sendMessage(
+        `System instruction (please follow these guidelines): ${buildSystemPrompt(topic)}`
+      )).response;
       currentTopic = topic;
-    }
-    
-    try {
-      // Always log before sending
-      console.log(`[Gemini API] Sending user message to ${currentModel}: "${userMessage}"`);
-      const result = await chatInstance.sendMessage(userMessage);
-      const response = await result.response;
-      const responseText = response.text();
-      console.log(`[Gemini API] Got response: "${responseText.substring(0, 50)}..."`);
-      return responseText;
-    } catch (error: any) {
-      console.error(`Error with model ${currentModel}:`, error);
-      
-      // If we get a 429 error (quota exceeded) or other API error, try the fallback
-      if (error.message && (error.message.includes("429") || error.message.includes("400")) && currentModel === MODELS.PRIMARY) {
-        console.log("Trying fallback model due to API error...");
-        
-        // Reset chat instance to use the fallback model
-        chatInstance = null;
-        currentModel = MODELS.FALLBACK;
-        model = genAI.getGenerativeModel({ model: currentModel });
-        
-        // Recreate the chat with the fallback model using the updated system prompt
-        const systemPrompt = `You are Iyraa, a warm, friendly, and intelligent English tutor AI designed to help users improve their English naturally and confidently.
+    // }
+    // console.log(`[Gemini API] Sending user message: "${userMessage}"`);
+    const result = await chatInstance.sendMessage(userMessage);
+    const responseText = result.response.text();
+    console.log(`[Gemini API] Received response (truncated): "${responseText.substring(0, 50)}..."`);
+    return responseText;
 
-        The current conversation topic is: ${topic}.
-        
-        ***CRITICAL INSTRUCTIONS***:
-        - Respond with EXACTLY ONE conversational reply directly answering the user's message
-        - NEVER provide ANY grammar assessment, feedback, or comments on their language quality
-        - NEVER start with phrases like "That's a good question" or "That's well expressed" or any similar commentary
-        - DO NOT split your response into multiple messages or thoughts
-        - Simply respond naturally as you would in a human conversation
-        - Keep responses warm, concise, and conversational
-        
-        Begin the conversation by introducing yourself: "Hi, I'm Iyraa, your friendly English tutor. I'm here to help you practice conversational English in a natural, supportive way!"`;
-        
-        chatInstance = model.startChat({ history: [] });
-        
-        // Send the system prompt
+  } catch (error: any) {
+    console.error(`[Gemini API] Error: ${error?.message}`);
+    // console.error(`[Gemini API] Current key: ${getCurrentKey()}`);
+    rotateKey();
+    return await sendMessageToGemini(userMessage, topic, retriesLeft - 1);
+
+    // Check for quota errors
+    if (error?.message && (error.message.includes("429") || error.message.includes("400"))) {
+      console.warn("[Gemini API] Quota error detected. Rotating key...");
+      rotateKey();
+      return await sendMessageToGemini(userMessage, topic, retriesLeft - 1);
+    }
+
+    // Try fallback model if we weren't already on it
+    if (error?.message && !error.message.includes("API key")) {
+      try {
+        console.log("[Gemini API] Attempting fallback model...");
+        const genAI = getGenAI();
+        let fallbackModel = genAI.getGenerativeModel({ model: MODELS.FALLBACK });
+        chatInstance = fallbackModel.startChat({ history: [] });
         await (await chatInstance.sendMessage(
-          `System instruction (please follow these guidelines): ${systemPrompt}`
+          `System instruction (please follow these guidelines): ${buildSystemPrompt(topic)}`
         )).response;
-        
-        // Try again with the fallback model
         const fallbackResult = await chatInstance.sendMessage(userMessage);
-        const fallbackResponse = await fallbackResult.response;
-        const fallbackText = fallbackResponse.text();
-        
+        const fallbackText = fallbackResult.response.text();
         return fallbackText;
-      } else {
-        // If it's not a quota error or fallback also failed, throw the error
-        throw error;
+      } catch (fallbackError: any) {
+        console.error(`[Gemini API] Fallback model error: ${fallbackError?.message}`, getCurrentKey());
+        rotateKey();
+        return await sendMessageToGemini(userMessage, topic, retriesLeft - 1);
       }
     }
-  } catch (error: any) {
-    console.error("Error with Gemini API:", error);
-    
-    // Custom message for API key errors
-    if (error.message && error.message.includes("API key")) {
-      return `There seems to be an issue with your API key. Please check your settings and make sure you've entered a valid Google Gemini API key.`;
-    }
-    
-    // Custom message for rate limit errors
-    if (error.message && error.message.includes("429")) {
-      return `You've reached the API rate limit. Please try again in a few minutes or use a different API key in the Settings page.`;
-    }
-    
-    return `Sorry, I encountered an error. Please check the Settings page to ensure your API key is correctly set up.`;
+
+    // Other errors
+    console.warn("[Gemini API] Rotating key due to generic error...", getCurrentKey());
+
+    rotateKey();
+    return await sendMessageToGemini(userMessage, topic, retriesLeft - 1);
   }
 };
 
-// Get feedback on user's speaking
+/**
+ * Get feedback on user's speaking
+ */
 export const getLanguageFeedback = async (userMessage: string): Promise<{
   feedback: string,
   fluencyScore: number,
   vocabularyScore: number,
   grammarScore: number
 }> => {
-  try {
-    // Get fresh instance with current API key
-    const genAI = getGenAIInstance();
-    if (!genAI) {
-      return {
-        feedback: "Please add your Gemini API key in the Settings page to use this feature.",
-        fluencyScore: 0,
-        vocabularyScore: 0,
-        grammarScore: 0
-      };
-    }
-    
-    // Try with primary model first
-    let currentModel = MODELS.PRIMARY;
-    let model = genAI.getGenerativeModel({ model: currentModel });
-    
+  let retriesLeft = API_KEYS.length;
+  while (retriesLeft > 0) {
     try {
-      console.log(`Getting language feedback using model: ${currentModel}`);
-      
-      // Create a new chat session for the feedback with updated persona instructions
+      const genAI = getGenAI();
+      let model = genAI.getGenerativeModel({ model: MODELS.PRIMARY });
+
       const feedbackChat = model.startChat({
         generationConfig: {
-          temperature: 0.2, // Lower temperature for more consistent evaluation
+          temperature: 0.2,
           topK: 40,
           topP: 0.95,
           maxOutputTokens: 1000,
         },
       });
-      
+
       const prompt = `
-        You are Iyraa, a warm and supportive English tutor. 
-        
-        Analyze the following English sentence or paragraph:
-        
-        "${userMessage}"
-        
-        DO NOT provide grammar corrections or assessments. Focus ONLY on providing ONE simple, encouraging response without ANY language analysis.
-        
-        Your feedback must:
-        - Be ONE simple conversational response with NO critique
-        - NEVER mention any errors or language quality
-        - NEVER include phrases like "That's well expressed" or "Good job with..."
-        - Just respond naturally to what they said as if you're having a regular conversation
-        
-        Format your response as a JSON object with these keys exactly: 
-        {
-          "feedback": "your single conversational response (NO grammar comments)",
-          "fluencyScore": number (0-100),
-          "vocabularyScore": number (0-100),
-          "grammarScore": number (0-100)
-        }
-      `;
-      
-      // Send the message using the chat instance
+You are Iyraa, a warm and supportive English tutor.
+
+Analyze the following English sentence or paragraph:
+
+"${userMessage}"
+
+DO NOT provide grammar corrections or assessments. Focus ONLY on providing ONE simple, encouraging response without ANY language analysis.
+
+Your feedback must:
+- Be ONE simple conversational response with NO critique
+- NEVER mention any errors or language quality
+- NEVER include phrases like "That's well expressed" or "Good job with..."
+- Just respond naturally to what they said as if you're having a regular conversation
+
+Format your response as a JSON object with these keys exactly:
+{
+  "feedback": "your single conversational response (NO grammar comments)",
+  "fluencyScore": number (0-100),
+  "vocabularyScore": number (0-100),
+  "grammarScore": number (0-100)
+}
+`;
+
       const result = await feedbackChat.sendMessage(prompt);
-      const response = await result.response;
-      const text = response.text().trim();
-      console.log(`Got feedback response (first 50 chars): "${text.substring(0, 50)}..."`);
-      
-      // Extract the JSON from the response
-      // First try to parse the whole response as JSON
+      const text = result.response.text().trim();
+      console.log(`[Gemini API] Feedback response (truncated): "${text.substring(0, 50)}..."`);
+
       try {
         return JSON.parse(text);
-      } catch (e) {
-        // If that fails, try to extract JSON from the text
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          return JSON.parse(jsonMatch[0]);
-        }
-        
-        // If still no valid JSON, throw an error
-        throw new Error("Could not parse feedback response as JSON");
+      } catch {
+        const match = text.match(/\{[\s\S]*\}/);
+        if (match) return JSON.parse(match[0]);
+        throw new Error("Invalid JSON in feedback response");
       }
+
     } catch (error: any) {
-      console.error(`Error with model ${currentModel}:`, error);
-      
-      // If we get a 429 error (quota exceeded) or any API error and we're using the primary model, try the fallback
-      if (error.message && (error.message.includes("429") || error.message.includes("400")) && currentModel === MODELS.PRIMARY) {
-        console.log("Trying fallback model for feedback due to API error...");
-        
-        // Use the fallback model
-        currentModel = MODELS.FALLBACK;
-        model = genAI.getGenerativeModel({ model: currentModel });
-        
-        // Create a new chat session with fallback model and the updated persona instructions
-        const feedbackChat = model.startChat({
+      console.error(`[Gemini API] Error getting feedback: ${error?.message}`);
+      if (error?.message && (error.message.includes("429") || error.message.includes("400"))) {
+        console.warn("[Gemini API] Quota error detected. Rotating key...");
+        rotateKey();
+        retriesLeft--;
+        continue;
+      }
+
+      // Try fallback model once
+      try {
+        console.log("[Gemini API] Attempting fallback model for feedback...");
+        const genAI = getGenAI();
+        let fallbackModel = genAI.getGenerativeModel({ model: MODELS.FALLBACK });
+
+        const feedbackChat = fallbackModel.startChat({
           generationConfig: {
             temperature: 0.2,
             topK: 40,
@@ -262,69 +226,31 @@ export const getLanguageFeedback = async (userMessage: string): Promise<{
             maxOutputTokens: 1000,
           },
         });
-        
-        const prompt = `
-          You are Iyraa, a warm and supportive English tutor. 
-          
-          Analyze the following English sentence or paragraph:
-          
-          "${userMessage}"
-          
-          DO NOT provide grammar corrections or assessments. Focus ONLY on providing ONE simple, encouraging response without ANY language analysis.
-        
-          Your feedback must:
-          - Be ONE simple conversational response with NO critique
-          - NEVER mention any errors or language quality
-          - NEVER include phrases like "That's well expressed" or "Good job with..."
-          - Just respond naturally to what they said as if you're having a regular conversation
-          
-          Format your response as a JSON object with these keys exactly: 
-          {
-            "feedback": "your single conversational response (NO grammar comments)",
-            "fluencyScore": number (0-100),
-            "vocabularyScore": number (0-100),
-            "grammarScore": number (0-100)
-          }
-        `;
-        
-        // Try again with fallback model
+
         const fallbackResult = await feedbackChat.sendMessage(prompt);
-        const fallbackResponse = await fallbackResult.response;
-        const fallbackText = fallbackResponse.text().trim();
-        
-        // Extract JSON from fallback response
+        const fallbackText = fallbackResult.response.text().trim();
+
         try {
           return JSON.parse(fallbackText);
-        } catch (e) {
-          const jsonMatch = fallbackText.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            return JSON.parse(jsonMatch[0]);
-          }
-          throw new Error("Could not parse feedback response as JSON from fallback model");
+        } catch {
+          const match = fallbackText.match(/\{[\s\S]*\}/);
+          if (match) return JSON.parse(match[0]);
+          throw new Error("Invalid JSON in fallback feedback response");
         }
-      } else {
-        // If it's not a quota error or fallback also failed, throw the error
-        throw error;
+
+      } catch (fallbackError: any) {
+        console.error(`[Gemini API] Fallback feedback error: ${fallbackError?.message}`);
+        rotateKey();
+        retriesLeft--;
+        continue;
       }
     }
-  } catch (error: any) {
-    console.error("Error getting language feedback:", error);
-    
-    // Custom error message based on error type
-    if (error.message && error.message.includes("API key")) {
-      return {
-        feedback: "Please check your API key in Settings.",
-        fluencyScore: 50,
-        vocabularyScore: 50,
-        grammarScore: 50
-      };
-    }
-    
-    return {
-      feedback: "Could not analyze your response. Check your API key in Settings.",
-      fluencyScore: 50,
-      vocabularyScore: 50,
-      grammarScore: 50
-    };
   }
+
+  return {
+    feedback: "Could not analyze your response. Check your API key in Settings.",
+    fluencyScore: 50,
+    vocabularyScore: 50,
+    grammarScore: 50
+  };
 };

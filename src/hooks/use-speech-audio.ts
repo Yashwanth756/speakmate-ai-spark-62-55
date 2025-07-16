@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from 'react';
 interface SpeechAudioHook {
   isListening: boolean;
   transcript: string;
+  setTranscript;
   isSpeaking: boolean;
   handleStartRecording: () => void;
   handleStopRecording: () => void;
@@ -95,6 +96,7 @@ export const useSpeechAudio = (): SpeechAudioHook => {
   return {
     isListening,
     transcript,
+    setTranscript,
     isSpeaking,
     handleStartRecording,
     handleStopRecording,

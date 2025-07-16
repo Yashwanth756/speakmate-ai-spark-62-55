@@ -240,7 +240,7 @@ Respond as clean JSON ONLY, using keys:
       );
       
       // Log the API call for debugging
-      console.log("API response status:", apiRes.status);
+      // console.log("API response status:", apiRes.status);
       
       if (!apiRes.ok) {
         const errorText = await apiRes.text();
@@ -312,7 +312,7 @@ Respond as clean JSON ONLY, using keys:
       };
       // console.log('starting update', dailyData())
       await handleDailyData(currDay);
-      // console.log("Updated daily data:", dailyData());
+      // console.log("Updated daily data:", dailyData())
       
       
       setFeedback(feedbackObj);

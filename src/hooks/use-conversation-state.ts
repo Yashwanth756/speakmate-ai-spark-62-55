@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { toast } from "sonner";
 import { resetChatHistory, sendMessageToGemini } from '@/lib/gemini-api';
 import { useNavigate } from 'react-router-dom';
-
+import { handleDailyData } from '@/data/progressData';
 export type ConversationEntry = {
   speaker: 'ai' | 'user';
   text: string;
@@ -115,7 +115,21 @@ export function useConversationState() {
       setFluencyScore(prev => Math.min(100, Math.max(0, prev + (Math.random() * 20 - 10))));
       setVocabularyScore(prev => Math.min(100, Math.max(0, prev + (Math.random() * 20 - 10))));
       setGrammarScore(prev => Math.min(100, Math.max(0, prev + (Math.random() * 20 - 10))));
-      
+      const currDay = {
+              date: new Date().toISOString().split('T')[0], // Current date in YYYY-MM-DD format
+              day: new Date().toLocaleDateString("en-US", { weekday: "short" }),
+              fullDate: new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit" }),
+              speaking: 0,
+              pronunciation: fluencyScore || 0,
+              vocabulary: vocabularyScore || 0,
+              grammar: grammarScore || 0,
+              story: 0,
+              reflex: 0,
+              totalTime: 0,
+              sessionsCompleted: 0
+            };
+            // console.log('starting update', dailyData())
+            await handleDailyData(currDay);
       // Add AI response to conversation
       setConversationHistory(prev => [
         ...prev, 

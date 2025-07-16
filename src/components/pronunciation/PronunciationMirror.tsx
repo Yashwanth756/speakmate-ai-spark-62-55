@@ -11,7 +11,7 @@ import { useSpeechAudio } from "@/hooks/use-speech-audio";
 import { toast } from "sonner";
 import { TalkingFaceDiagram } from "./TalkingFaceDiagram";
 import { sendMessageToGemini } from "@/lib/gemini-api";
-
+import { handleDailyData } from "@/data/progressData";
 const COLORS = ["#00c853", "#ffd600", "#ff5252"];
 
 const levels = [
@@ -44,6 +44,7 @@ export function PronunciationMirror() {
   const { 
     isListening, 
     transcript, 
+    setTranscript,
     handleStartRecording, 
     handleStopRecording,
     speakText
@@ -167,6 +168,8 @@ Make sure the word is appropriate for ${level} level learners and provide 2-4 sy
   // Handle recording
   const handleRecord = () => {
     if (!isListening) {
+      setTranscript('')
+      console.log("Starting recording...", transcript);
       handleStartRecording();
     } else {
       handleStopRecording();
@@ -202,6 +205,21 @@ Make sure the word is appropriate for ${level} level learners and provide 2-4 sy
       const overallScore = Math.floor(
         phonemeScores.reduce((sum, item) => sum + item.value, 0) / phonemeScores.length
       );
+      const currDay = {
+                    date: new Date().toISOString().split('T')[0], // Current date in YYYY-MM-DD format
+                    day: new Date().toLocaleDateString("en-US", { weekday: "short" }),
+                    fullDate: new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit" }),
+                    speaking: 0,
+                    pronunciation:  overallScore,
+                    vocabulary:0,
+                    grammar: 0,
+                    story: 0,
+                    reflex: 0,
+                    totalTime: 0,
+                    sessionsCompleted: 0
+                  };
+                  // console.log('starting update', dailyData())
+      handleDailyData(currDay);
       
       setScore(overallScore);
       setPie(phonemeScores);

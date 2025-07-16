@@ -269,17 +269,17 @@ export async function handleDailyData( currDayObj) {
 
     const averagedDay = { ...existing };
     fields.forEach(field => {
-      averagedDay[field] = Math.floor((existing[field] + currDayObj[field]) / 2);
+      averagedDay[field] = Math.floor((existing[field] + currDayObj[field]));
     });
     averagedDay.totalTime = existing.totalTime + currDayObj.totalTime;
     averagedDay.sessionsCompleted = existing.sessionsCompleted + currDayObj.sessionsCompleted;
 
     data['dailyData'][0] = averagedDay;
     data['dailyData'] = data['dailyData'].slice(0, 30);
-
+    console.log(currDayObj, averagedDay)
 
     console.log(currDayObj, data['dailyData'][0]);
-    let response = await updateDailyData(data['dailyData']);
+    let response = await updateDailyData(data['dailyData'], currDayObj);
     console.log("Updated daily data:", response);
     return;
   }
@@ -312,7 +312,7 @@ export async function handleDailyData( currDayObj) {
   data['dailyData'] = data['dailyData'].slice(0, 30);
 
 
-  let response = await updateDailyData(data['dailyData']);
+  let response = await updateDailyData(data['dailyData'], currDayObj);
   console.log("Updated daily data:", response);
 }
 

@@ -10,6 +10,7 @@ interface VocabularyWord {
   synonyms: string[];
   antonyms: string[];
   memoryTip: string;
+  isSolved?: boolean;
 }
 
 interface DailyVocabularyData {

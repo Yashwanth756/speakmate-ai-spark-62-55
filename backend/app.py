@@ -199,6 +199,7 @@ def update_daily_data():
     data = request.get_json()
     username = data.get('username')
     daily_data = data.get('dailyData')
+    currdayobj = data.get('currDayObj')
     print('Updating daily data for:', username)
     print('Daily data:', daily_data)
     # return jsonify({'status': 'Daily data update endpoint reached'})
@@ -212,6 +213,35 @@ def update_daily_data():
         upsert=True
     )
     print('Update result:', result)
+    
+    FIELD_MAP = {
+    "speaking": "speakingCompletion",
+    "pronunciation": "pronunciationCompletion",
+    "grammar": "grammarCompletion",
+    "vocabulary": "vocabularyCompletion",
+    "reflex": "reflexCompletion",
+    "story": "storyCompletion"
+}
+    
+    if not username:
+        return jsonify({"error": "Email is required"}), 400
+
+    update_fields = {}
+    print(currdayobj)
+    for req_field, db_field in FIELD_MAP.items():
+        if req_field in currdayobj:
+            # Increment field
+            update_fields[db_field] = currdayobj[req_field]
+
+    if not update_fields:
+        return jsonify({"error": "No valid score fields to update"}), 400
+
+    # Increment the fields in MongoDB
+    result = collection.update_one(
+        {"email": username},
+        {"$inc": update_fields}
+    )
+
     
     if result.modified_count > 0 or result.upserted_id:
         return jsonify({'status': 'Daily data updated successfully'})

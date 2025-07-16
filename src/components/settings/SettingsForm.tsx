@@ -309,43 +309,7 @@ export function SettingsForm() {
                 />
               </div>
               
-              {/* MongoDB Cluster Link Section */}
-              <div className="space-y-4">
-                <h2 className="text-xl font-semibold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                  MongoDB Cluster
-                </h2>
-                <FormField
-                  control={form.control}
-                  name="mongoClusterLink"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-lg">MongoDB Cluster URI</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="mongodb+srv://..."
-                          {...field}
-                          className="font-mono dark:bg-gray-800/80 dark:border-gray-700 pr-20 transition-all duration-200 border-2 focus-visible:border-primary"
-                          onChange={(e) => {
-                            field.onChange(e);
-                            setIsSaved(false);
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                      <div className="flex items-center justify-between mt-1">
-                        <p className="text-xs text-muted-foreground">
-                          Paste your MongoDB URI here for backend API use.
-                        </p>
-                        {isSaved && field.value && (
-                          <span className="text-xs text-green-500 dark:text-green-400 flex items-center">
-                            Saved
-                          </span>
-                        )}
-                      </div>
-                    </FormItem>
-                  )}
-                />
-              </div>
+             
               
               {/* General Settings */}
               <div className="space-y-4">

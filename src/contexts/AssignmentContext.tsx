@@ -85,9 +85,10 @@ export const AssignmentProvider: React.FC<{ children: ReactNode }> = ({ children
 
   // ✅ Fetch assignments for logged-in teacher
   useEffect(() => {
+    const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
+    const email = user?.email || userSession.email || "";
     const fetchAssignmentsForTeacher = async () => {
-      const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
-      const email = user?.email || userSession.email || "";
+      
       try {
         
 
@@ -129,7 +130,7 @@ export const AssignmentProvider: React.FC<{ children: ReactNode }> = ({ children
       
       });
     };
-
+    if (userSession.role === 'teacher' || user?.role === 'teacher')  // Check if the user is a teacher
     fetchAssignmentsForTeacher();
 
 

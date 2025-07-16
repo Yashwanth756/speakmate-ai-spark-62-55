@@ -9,8 +9,8 @@ CORS(app)
 # MongoDB connection
 client = MongoClient("mongodb+srv://root:root@cluster0.jt307.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 db = client['school']
-collection = db['data']
-
+collection = db['records']
+# from assignmentfetching import student_assignment_status
 # Optional: Route to insert activityLog
 @app.route('/insertActivityLog', methods=['POST', 'GET'])
 def insert_activity_log():
@@ -673,5 +673,232 @@ def delete_assignment():
         "usersModified": modified_count
     }), 200
 
+
+
+@app.route("/student-overall-progress", methods=["POST"])
+def student_overall_progress():
+    data = request.json
+    student_email = data.get("studentEmail")
+    print(student_email, data)
+    if not student_email:
+        return jsonify({"error": "Missing studentEmail"}), 400
+
+    # 1. Fetch student document
+    student = collection.find_one({"email": student_email, "role": "student"})
+    if not student:
+        return jsonify({"error": "Student not found"}), 404
+
+    total_items = 0
+    completed_items = 0
+
+    # 2. Check wordscramble progress
+    for difficulty in ["easy", "medium", "hard"]:
+        scramble_list = student.get("wordscramble", {}).get(difficulty, [])
+        for item in scramble_list:
+            total_items += 1
+            if item[2]:  # isCompleted flag
+                completed_items += 1
+
+    # 3. Check vocabularyArcade progress
+    arcade_levels = ["beginner", "intermediate", "advanced"]
+    for level in arcade_levels:
+        word_details = student.get("vocabularyArchade", {}).get(level, {}).get("wordDetails", [])
+        for word in word_details:
+            total_items += 1
+            if word.get("isSolved"):
+                completed_items += 1
+
+    # 4. Check wordsearch progress
+    for level in ["beginner", "intermediate", "advanced"]:
+        words = student.get("wordsearch", {}).get(level, {}).get("words", [])
+        for word in words:
+            total_items += 1
+            if word.get("solved"):
+                completed_items += 1
+
+    # 5. Calculate percentage
+    percentage = (completed_items / total_items * 100) if total_items else 0
+
+    return jsonify({
+        "studentEmail": student_email,
+        "totalItems": total_items,
+        "completedItems": completed_items,
+        "percentage": round(percentage, 2)
+    })
+
+
+
+@app.route("/student-assignment-status", methods=["POST"])
+def student_assignment_status():
+    data = request.json
+    student_email = data.get("studentEmail")
+    assignment_id = data.get("assignmentId")
+
+    if not student_email or not assignment_id:
+        return jsonify({"error": "Missing studentEmail or assignmentId"}), 400
+
+    # 1. Find student
+    student = collection.find_one({"email": student_email, "role": "student"})
+    if not student:
+        return jsonify({"error": "Student not found"}), 404
+
+    # 2. Find teacher who owns the assignment
+    teacher = collection.find_one({
+        "role": "teacher",
+        "assignments.id": assignment_id
+    })
+    if not teacher:
+        return jsonify({"error": "Assignment not found"}), 404
+
+    # 3. Extract assignment
+    assignment = next(
+        a for a in teacher["assignments"]
+        if a["id"] == assignment_id
+    )
+    assignment_type = assignment["type"]
+    metadata = assignment["metadata"]
+    target_class = assignment["targetClass"]
+    target_section = assignment["targetSection"]
+
+    # 4. Check student class/section match
+    if target_class not in student.get("classes", []) or target_section not in student.get("sections", []):
+        return jsonify({"error": "Student not in target class/section"}), 400
+
+    # 5. Check progress
+    total_items = 0
+    completed_items = 0
+
+    if assignment_type == "word_search":
+        words = metadata.get("searchWords", [])
+        for w in words:
+            difficulty = w["difficulty"]
+            student_words = student.get("wordsearch", {}).get(difficulty, {}).get("words", [])
+            match = next((sw for sw in student_words if sw["word"] == w["word"]), None)
+            if match and match.get("solved"):
+                completed_items += 1
+            total_items += 1
+
+    elif assignment_type == "vocabulary_builder":
+        words = metadata.get("vocabularyWords", [])
+        for w in words:
+            difficulty = w["difficulty"]
+            arcade_level = {"easy": "beginner", "medium": "intermediate", "hard": "advanced"}[difficulty]
+            student_words = student.get("vocabularyArchade", {}).get(arcade_level, {}).get("wordDetails", [])
+            match = next((sw for sw in student_words if sw["word"] == w["word"]), None)
+            if match and match.get("isSolved"):
+                completed_items += 1
+            total_items += 1
+
+    elif assignment_type == "word_scramble":
+        words = metadata.get("scrambleWords", [])
+        for w in words:
+            difficulty = w["difficulty"]
+            student_list = student.get("wordscramble", {}).get(difficulty, [])
+            match = next((item for item in student_list if item[0] == w["word"]), None)
+            if match and match[2]:  # third index is completion flag
+                completed_items += 1
+            total_items += 1
+
+    # 6. Calculate percentage
+    percentage = (completed_items / total_items * 100) if total_items else 0
+
+    return jsonify({
+        "assignmentId": assignment_id,
+        "studentEmail": student_email,
+        "totalItems": total_items,
+        "completedItems": completed_items,
+        "percentage": round(percentage, 2)
+    })
+
+
+
+@app.route("/teacher-assignments-progress", methods=["POST"])
+def teacher_assignments_progress():
+    data = request.json
+    teacher_email = data.get("teacherEmail")
+
+    if not teacher_email:
+        return jsonify({"error": "Missing teacherEmail"}), 400
+
+    # 1. Find teacher
+    teacher = collection.find_one({"email": teacher_email, "role": "teacher"})
+    if not teacher:
+        return jsonify({"error": "Teacher not found"}), 404
+
+    assignments = teacher.get("assignments", [])
+    results = []
+
+    for assignment in assignments:
+        assignment_id = assignment.get("id")
+        assignment_type = assignment.get("type")
+        metadata = assignment.get("metadata")
+        target_class = assignment.get("targetClass")
+        target_section = assignment.get("targetSection")
+
+        # 2. Find students in the target class and section
+        students = list(collection.find({
+            "role": "student",
+            "classes": target_class,
+            "sections": target_section
+        }))
+
+        for student in students:
+            student_email = student.get("email")
+
+            total_items = 0
+            completed_items = 0
+
+            if assignment_type == "word_search":
+                words = metadata.get("searchWords", [])
+                total_items = len(words)
+                for w in words:
+                    difficulty = w["difficulty"]
+                    student_words = student.get("wordsearch", {}).get(difficulty, {}).get("words", [])
+                    match = next((sw for sw in student_words if sw["word"] == w["word"]), None)
+                    if match and match.get("solved"):
+                        completed_items += 1
+
+            elif assignment_type == "vocabulary_builder":
+                words = metadata.get("vocabularyWords", [])
+                total_items = len(words)
+                for w in words:
+                    difficulty = w["difficulty"]
+                    arcade_level = {"easy": "beginner", "medium": "intermediate", "hard": "advanced"}[difficulty]
+                    student_words = student.get("vocabularyArchade", {}).get(arcade_level, {}).get("wordDetails", [])
+                    match = next((sw for sw in student_words if sw["word"] == w["word"]), None)
+                    if match and match.get("isSolved"):
+                        completed_items += 1
+
+            elif assignment_type == "word_scramble":
+                words = metadata.get("scrambleWords", [])
+                total_items = len(words)
+                for w in words:
+                    difficulty = w["difficulty"]
+                    student_list = student.get("wordscramble", {}).get(difficulty, [])
+                    match = next((item for item in student_list if item[0] == w["word"]), None)
+                    if match and match[2]:
+                        completed_items += 1
+
+            # 3. Compute bestScore
+            if total_items > 0:
+                best_score = round((completed_items / total_items) * 100, 2)
+            else:
+                best_score = 0.0
+
+            # 4. Determine status
+            status = "completed" if best_score == 100.0 else "incomplete"
+
+            # 5. Add to results
+            results.append({
+                "assignmentId": assignment_id,
+                "studentId": student_email,
+                "attempts": 0,
+                "bestScore": best_score,
+                "timeSpent": 0,
+                "status": status,
+                "lastAttempt": None
+            })
+
+    return jsonify(results)
 if __name__ == '__main__':
     app.run(debug=True)

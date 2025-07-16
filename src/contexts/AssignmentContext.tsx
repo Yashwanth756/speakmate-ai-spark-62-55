@@ -65,29 +65,31 @@ interface AssignmentContextType {
 
 const AssignmentContext = createContext<AssignmentContextType | undefined>(undefined);
 
-const MOCK_PROGRESS: StudentProgress[] = [
-  {
-    assignmentId: '3',
-    studentId: 'alice_johnson',
-    attempts: 2,
-    bestScore: 80,
-    timeSpent: 120,
-    status: 'completed',
-    lastAttempt: '2024-06-12T08:30:00Z'
-  }
-];
 
 export const AssignmentProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  let MOCK_PROGRESS: StudentProgress[] = [
+    {
+      assignmentId: '3',
+      studentId: 'alice_johnson',
+      attempts: 2,
+      bestScore: 80,
+      timeSpent: 120,
+      status: 'completed',
+      lastAttempt: '2024-06-12T08:30:00Z'
+    }
+  ];
   const [studentProgress, setStudentProgress] = useState<StudentProgress[]>(MOCK_PROGRESS);
+  
 
   // ✅ Fetch assignments for logged-in teacher
   useEffect(() => {
     const fetchAssignmentsForTeacher = async () => {
+      const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
+      const email = user?.email || userSession.email || "";
       try {
-        const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
-        const email = user?.email || userSession.email || "";
+        
 
         if (!email) {
           console.warn("No teacher email found, skipping fetch.");
@@ -104,6 +106,7 @@ export const AssignmentProvider: React.FC<{ children: ReactNode }> = ({ children
         const data = await res.json();
 
         if (Array.isArray(data.assignments)) {
+          console.log('Fetched assignments:', data.assignments);
           setAssignments(data.assignments);
         } else {
           console.warn('Invalid assignments format from server:', data);
@@ -113,9 +116,23 @@ export const AssignmentProvider: React.FC<{ children: ReactNode }> = ({ children
         console.error('Error fetching assignments for teacher:', err);
         setAssignments([]);
       }
+
+      await fetch("http://localhost:5000/teacher-assignments-progress", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teacherEmail: email })
+      })
+      .then(res => res.json())
+      .then(data => {
+        setStudentProgress(data)
+      console.log('assighments',data, MOCK_PROGRESS);
+      
+      });
     };
 
     fetchAssignmentsForTeacher();
+
+
   }, [user]);
 
   const createAssignment = (assignmentData: Omit<Assignment, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -224,7 +241,28 @@ export const AssignmentProvider: React.FC<{ children: ReactNode }> = ({ children
   };
 
   const getStudentProgress = (studentId: string, assignmentId: string) => {
-    return studentProgress.find(p => p.studentId === studentId && p.assignmentId === assignmentId);
+  // fetch("http://localhost:5000/student-assignment-status", {
+  // method: "POST",
+  // headers: { "Content-Type": "application/json" },
+  // body: JSON.stringify({
+  //   studentEmail: studentId+"@gmail.com", 
+  //   assignmentId: assignmentId
+  // })
+  // })
+  // .then(res => res.json())
+  // .then(data => {
+  // console.log(data.percentage);
+  // // {
+  // //   assignmentId: "...",
+  // //   studentEmail: "...",
+  // //   totalItems: 3,
+  // //   completedItems: 2,
+  // //   percentage: 66.67
+  // // }
+  // });
+  // console.log(studentProgress)
+    return studentProgress.find(p => p.studentId === studentId+"@gmail.com" && p.assignmentId === assignmentId);
+    // return 0
   };
 
   const getProgressForAssignment = (assignmentId: string) => {

@@ -295,7 +295,7 @@ const TeacherDashboard = () => {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {topPerformers.map((student, index) => (
-                      <Card key={student.id} className="border-2 border-yellow-200 bg-yellow-50/50">
+                      <Card key={student.username} className="border-2 border-yellow-200 bg-yellow-50/50">
                         <CardContent className="p-4 text-center">
                           <div className="flex items-center justify-center gap-2 mb-2">
                             <Trophy className={`h-6 w-6 ${index === 0 ? 'text-yellow-500' : index === 1 ? 'text-gray-400' : 'text-orange-400'}`} />
@@ -341,7 +341,7 @@ const TeacherDashboard = () => {
                       </TableHeader>
                       <TableBody>
                         {filteredStudents.map((student) => (
-                          <TableRow key={student.id}>
+                          <TableRow key={student.username}>
                             <TableCell>
                               <div>
                                 <p className="font-medium">{student.fullName}</p>

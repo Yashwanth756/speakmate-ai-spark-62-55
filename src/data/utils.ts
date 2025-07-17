@@ -1,3 +1,5 @@
+const backend_url = import.meta.env.VITE_backend_url
+
 export function getWeeklyData(dailyData) {
   // Initialize map for each day of week
   
@@ -26,7 +28,7 @@ export const updateDailyData = async(dailyData, currDayObj) => {
   const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
   const username = userSession.email || "Guest";
   console.log(username)
-  const response = await fetch("http://localhost:5000/updateDailyData", {
+  const response = await fetch(backend_url + "updateDailyData", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

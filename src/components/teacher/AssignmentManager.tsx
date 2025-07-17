@@ -22,7 +22,7 @@ import {
 import { useAssignments, Assignment } from "@/contexts/AssignmentContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-
+const backend_url = import.meta.env.VITE_backend_url
 interface AssignmentManagerProps {
   selectedClass: string;
   selectedSection: string;
@@ -277,7 +277,7 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
         };
 
         try {
-          const response = await fetch("http://localhost:5000/update-wordscramble-words", {
+          const response = await fetch(backend_url + "update-wordscramble-words", {
             method: "POST",
             headers: {
               "Content-Type": "application/json"
@@ -318,7 +318,7 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
         };
 
         try {
-          const response = await fetch("http://localhost:5000/update-vocab", {
+          const response = await fetch(backend_url + "update-vocab", {
             method: "POST",
             headers: {
               "Content-Type": "application/json"
@@ -362,7 +362,7 @@ export const AssignmentManager: React.FC<AssignmentManagerProps> = ({
         };
 
         try {
-          const response = await fetch("http://localhost:5000/update-wordsearch", {
+          const response = await fetch(backend_url + "update-wordsearch", {
             method: "POST",
             headers: {
               "Content-Type": "application/json"

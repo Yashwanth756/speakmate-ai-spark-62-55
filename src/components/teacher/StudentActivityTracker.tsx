@@ -15,7 +15,7 @@ import {
 import { useAssignments } from "@/contexts/AssignmentContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { StudentProgressModal } from './StudentProgressModal';
-
+const backend_url = import.meta.env.VITE_backend_url
 interface StudentActivityTrackerProps {
   selectedClass: string;
   selectedSection: string;
@@ -51,7 +51,7 @@ export const StudentActivityTracker: React.FC<StudentActivityTrackerProps> = ({
         }
 
         // 1. Fetch students
-        const response = await fetch(`http://localhost:5000/students?${params}`);
+        const response = await fetch(backend_url + `students?${params}`);
         const data = await response.json();
         setStudents(data);
 
@@ -60,7 +60,7 @@ export const StudentActivityTracker: React.FC<StudentActivityTrackerProps> = ({
         await Promise.all(
           data.map(async (student: any) => {
             try {
-              const res = await fetch("http://localhost:5000/student-overall-progress", {
+              const res = await fetch(backend_url + "student-overall-progress", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ studentEmail: student.username + '@gmail.com' })

@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
+const backend_url = import.meta.env.VITE_backend_url
 import { 
   Users, 
   Trophy, 
@@ -52,7 +53,7 @@ const TeacherDashboard = () => {
           class: selectedClass,
           section: selectedSection
         });
-        const response = await fetch(`http://localhost:5000/students?${params}`);
+        const response = await fetch(backend_url + `students?${params}`);
         const data = await response.json();
         setStudents(data);
         console.log('Fetched students:', data);

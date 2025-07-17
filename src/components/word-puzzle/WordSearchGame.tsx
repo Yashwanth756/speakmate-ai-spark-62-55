@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Clock, Trophy, Lightbulb, RotateCcw, Star, Target } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { wordsearchData } from '@/data/progressData';
+const backend_url = import.meta.env.VITE_backend_url
 let wordsearch = wordsearchData()
 
 function getSolvedWords(level: 'beginner' | 'intermediate' | 'advanced'): Set<string> {
@@ -42,7 +43,7 @@ function markWordAsSolved(
 async function updateScoreOnServer(level: 'beginner' | 'intermediate' | 'advanced', score: number, word) {
   const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
   const email = userSession.email || "a@gmail.com";
-  const response = await fetch('http://localhost:5000/updateWordsearchScore', {
+  const response = await fetch(backend_url+'updateWordsearchScore', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, level, score, word })

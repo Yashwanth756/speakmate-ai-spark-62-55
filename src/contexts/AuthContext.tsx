@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { generateDailyData } from '@/data/progressData';
 export type UserRole = 'student' | 'teacher';
+const backend_url = import.meta.env.VITE_backend_url
 export interface User {
   id: string;
   fullName: string;
@@ -72,7 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string, role: UserRole): Promise<boolean> => {
     // Simulate API call
     //const foundUser = MOCK_USERS.find(u => u.email === email && u.role === role);
-    const response = await fetch("http://localhost:5000/login", {
+    const response = await fetch(backend_url + "login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -113,7 +114,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     async function createStudentAccount(email: string, classes, section, password: string, fullName: string, role) {
       console.log('Creating student account:', { email, classes, section, password });
       try {
-        const res = await fetch('http://localhost:5000/create_account', {
+        const res = await fetch(backend_url + 'create_account', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

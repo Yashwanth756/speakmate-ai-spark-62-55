@@ -3,6 +3,7 @@ import { commonFiveLetterWords } from './word-lists/common-words';
 import { validFiveLetterWords } from './word-lists/valid-words';
 import { Difficulty } from '@/components/word-puzzle/WordScrambleGame';
 import { wordscrambleData } from '@/data/progressData';
+const backend_url = import.meta.env.VITE_backend_url
 // List of easy words (4-5 letters)
 
 let wordscramble = wordscrambleData() 
@@ -21,7 +22,7 @@ export const  getHintsForWord=(level, word)=> {
 export const updateHints = async(difficulty: string, word: string) =>{
   const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
   const email = userSession.email || "a@gmail.com";
-  const response = await fetch("http://localhost:5000/updatehints", {
+  const response = await fetch(backend_url + "updatehints", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -100,7 +101,7 @@ export const updateScore=async(difficulty, word)=>{
 
   // Send request to Flask to increment score
   try {
-    const response = await fetch("http://localhost:5000/increment-score", {
+    const response = await fetch(backend_url + "increment-score", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"

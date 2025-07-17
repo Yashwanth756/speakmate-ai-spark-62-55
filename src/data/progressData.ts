@@ -2,14 +2,15 @@
 // Enhanced progress data with daily tracking and analytics
 // In a real app, this would come from a database
 import {getWeeklyData, getRadarData, updateDailyData} from "./utils";
-
+const backend_url = import.meta.env.VITE_backend_url
+// console.log("API URL:", backend_url);
 const getUserData = async () => {
   const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
   let email;
   // if (userSession.role == 'student')
   email = userSession.email || "student1@gmail.com";
   // else email = userSession.email || "teacher@echo.ai"
-  const response = await fetch("http://localhost:5000/getUserData", {
+  const response = await fetch(backend_url + "getUserData", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

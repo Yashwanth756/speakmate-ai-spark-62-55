@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
-
+const backend_url = import.meta.env.VITE_backend_url
 export interface Assignment {
   id: string;
   type: 'reflex' | 'story' | 'puzzle' | 'quick_quiz';
@@ -97,7 +97,7 @@ export const AssignmentProvider: React.FC<{ children: ReactNode }> = ({ children
           return;
         }
 
-        const res = await fetch('http://localhost:5000/get-assignments', {
+        const res = await fetch(backend_url + 'get-assignments', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email })
@@ -118,7 +118,7 @@ export const AssignmentProvider: React.FC<{ children: ReactNode }> = ({ children
         setAssignments([]);
       }
 
-      await fetch("http://localhost:5000/teacher-assignments-progress", {
+      await fetch(backend_url+"teacher-assignments-progress", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ teacherEmail: email })
@@ -150,7 +150,7 @@ export const AssignmentProvider: React.FC<{ children: ReactNode }> = ({ children
       try {
         const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
         const email = user?.email || userSession.email || "";
-        await fetch('http://localhost:5000/add-assignment', {
+        await fetch(backend_url+'add-assignment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, newAssignment })
@@ -175,7 +175,7 @@ export const AssignmentProvider: React.FC<{ children: ReactNode }> = ({ children
       try {
         const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
         const email = user?.email || userSession.email || "";
-        const response = await fetch('http://localhost:5000/delete-assignment', {
+        const response = await fetch(backend_url + 'delete-assignment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, id: assignmentId })

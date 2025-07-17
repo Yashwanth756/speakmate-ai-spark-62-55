@@ -6,6 +6,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { LevelSelector } from "@/components/vocabulary/LevelSelector";
 import { vocabularyArchadeData } from "@/data/progressData";
+const backend_url = import.meta.env.VITE_backend_url
 let vocabularyArchade = vocabularyArchadeData();
 
 const vocabularyData = {
@@ -32,7 +33,7 @@ async function updateScoreAndSolve(difficulty, word) {
     const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
     const email = userSession.email || "a@gmail.com";
     try {
-      await fetch("http://localhost:5000/updateVocabularyArchadeScore", {
+      await fetch(backend_url + "updateVocabularyArchadeScore", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, difficulty, word })
@@ -49,7 +50,7 @@ async function updateBadge(badge, level) {
     try {
       const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
       const email = userSession.email || "a@gmail.com";
-      const response = await fetch("http://localhost:5000/updateVocabularyBadge", {
+      const response = await fetch(backend_url + "updateVocabularyBadge", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

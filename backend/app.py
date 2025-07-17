@@ -2,7 +2,10 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from pymongo import MongoClient
 from bson.json_util import dumps  # handles ObjectId serialization
+from dotenv import load_dotenv
+import os
 
+load_dotenv() 
 app = Flask(__name__)
 CORS(app)
 
@@ -32,6 +35,10 @@ def insert_activity_log():
     )
     print('Activity log inserted/updated:', result)
     return jsonify({'status': 'Activity log inserted/updated'})
+
+@app.route('/', methods=['GET'])
+def hone():
+    return jsonify({"message": "Welcome to the Speakmate API!"})
 
 # Login Route
 @app.route('/login', methods=['POST'])

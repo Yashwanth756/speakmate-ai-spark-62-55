@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,6 +26,22 @@ const SkillAssessment = () => {
   const [showRoadmap, setShowRoadmap] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Check for existing roadmap on component mount
+  useEffect(() => {
+    const existingRoadmap = localStorage.getItem('userRoadmap');
+    const assessmentCompleted = localStorage.getItem('skillAssessmentCompleted');
+    
+    if (existingRoadmap && assessmentCompleted === 'true') {
+      try {
+        const parsedRoadmap = JSON.parse(existingRoadmap);
+        setRoadmap(parsedRoadmap);
+        setShowRoadmap(true);
+      } catch (error) {
+        console.error('Error parsing existing roadmap:', error);
+      }
+    }
+  }, []);
 
   const availableModules = [
     { id: 'speaking', title: 'Speaking Practice', icon: Mic, route: '/speaking' },

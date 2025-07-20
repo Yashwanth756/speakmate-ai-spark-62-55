@@ -10,6 +10,7 @@ const RoadmapBackButton = () => {
   if (!showBackButton) return null;
 
   const handleBackToRoadmap = () => {
+    // Don't remove the roadmap data, just go back to it
     localStorage.removeItem('showRoadmapBackButton');
     navigate('/skill-assessment');
   };

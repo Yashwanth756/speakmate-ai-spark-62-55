@@ -13,7 +13,6 @@ import { VocabularyChart } from "@/components/vocabulary/VocabularyChart";
 import { DailyChallenge } from "@/components/vocabulary/DailyChallenge";
 import { LevelSelector } from "@/components/vocabulary/LevelSelector";
 import { useDailyVocabulary } from "@/hooks/use-daily-vocabulary";
-import RoadmapBackButton from "@/components/layout/RoadmapBackButton";
 
 const VocabularyTrainer: React.FC = () => {
   const { toast } = useToast();
@@ -228,7 +227,6 @@ const VocabularyTrainer: React.FC = () => {
   return (
     <SidebarProvider>
       <div className="min-h-screen bg-background flex w-full">
-        <RoadmapBackButton />
         <AppSidebar />
         <div className="flex-1 flex flex-col items-center p-4 md:p-8">
           <div className="w-full max-w-6xl animate-fade-in">

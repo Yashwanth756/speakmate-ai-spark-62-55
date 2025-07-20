@@ -10,7 +10,6 @@ import { ResponsiveContainer, RadarChart as RChart, PolarGrid, PolarAngleAxis, P
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { AlertCircle } from "lucide-react";
-import RoadmapBackButton from "@/components/layout/RoadmapBackButton";
 
 // Sample topics for the speaking practice select dropdown
 const sampleTopics = [
@@ -374,7 +373,6 @@ Respond as clean JSON ONLY, using keys:
 
   return (
     <AppLayout>
-      <RoadmapBackButton />
       <div className="mx-auto max-w-2xl py-8 sm:py-12 w-full px-2">
         <Card className="mb-6 shadow-xl animate-fade-in rounded-2xl">
           <CardHeader>

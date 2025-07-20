@@ -157,6 +157,9 @@ const SkillAssessment = () => {
       difficulty: item.difficulty
     }));
     
+    // Store flag to show back button in modules
+    localStorage.setItem('showRoadmapBackButton', 'true');
+    
     navigate(item.route);
   };
 
@@ -172,65 +175,81 @@ const SkillAssessment = () => {
   if (showRoadmap) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background to-muted/30 p-4">
-        <div className="max-w-4xl mx-auto space-y-6">
+        <div className="max-w-5xl mx-auto space-y-8">
           <div className="text-center space-y-4">
             <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Your Learning Roadmap
+              Your Learning Journey
             </h1>
             <p className="text-lg text-muted-foreground">
-              Follow this personalized path to achieve your English learning goals
+              Follow this personalized sequence to achieve your English learning goals
             </p>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            {roadmap.map((item, index) => {
-              const IconComponent = item.icon;
-              return (
-                <Card 
-                  key={item.id} 
-                  className="hover:shadow-lg transition-all duration-300 cursor-pointer border-2 hover:border-primary/50"
-                  onClick={() => handleModuleClick(item)}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-primary/10 rounded-lg">
-                          <IconComponent className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg">{item.title}</CardTitle>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(item.difficulty)}`}>
-                              {item.difficulty}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {item.itemsToSolve} items
-                            </span>
+          {/* Sequential Roadmap */}
+          <div className="relative">
+            {/* Progress Line */}
+            <div className="absolute left-8 md:left-1/2 top-24 bottom-0 w-1 bg-gradient-to-b from-primary via-accent to-muted-foreground/30 md:transform md:-translate-x-1/2 z-0"></div>
+            
+            <div className="space-y-8">
+              {roadmap.map((item, index) => {
+                const IconComponent = item.icon;
+                const isLeft = index % 2 === 0;
+                
+                return (
+                  <div key={item.id} className={`flex items-center ${isLeft ? 'md:flex-row' : 'md:flex-row-reverse'} relative z-10`}>
+                    {/* Step Number Circle */}
+                    <div className="absolute left-4 md:left-1/2 md:transform md:-translate-x-1/2 w-16 h-16 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg z-20">
+                      {index + 1}
+                    </div>
+                    
+                    {/* Card */}
+                    <Card 
+                      className={`ml-24 md:ml-0 ${isLeft ? 'md:mr-32' : 'md:ml-32'} w-full md:w-80 hover:shadow-xl transition-all duration-300 cursor-pointer border-2 hover:border-primary/50 hover:scale-105`}
+                      onClick={() => handleModuleClick(item)}
+                    >
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="p-3 bg-primary/10 rounded-xl">
+                            <IconComponent className="h-6 w-6 text-primary" />
+                          </div>
+                          <div className="flex-1">
+                            <CardTitle className="text-xl font-semibold">{item.title}</CardTitle>
+                            <div className="flex items-center gap-2 mt-2">
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${getDifficultyColor(item.difficulty)}`}>
+                                {item.difficulty}
+                              </span>
+                              <span className="text-xs text-muted-foreground font-medium">
+                                {item.itemsToSolve} exercises
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <span className="text-2xl font-bold text-muted-foreground">
-                        {index + 1}
-                      </span>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground">
-                      {item.description}
-                    </p>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          {item.description}
+                        </p>
+                        <div className="mt-3 flex items-center justify-between">
+                          <span className="text-xs text-primary font-medium">Click to start →</span>
+                          <div className="w-8 h-1 bg-gradient-to-r from-primary to-accent rounded-full"></div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="text-center">
+          <div className="text-center pt-8">
             <Button
               variant="outline"
               onClick={() => {
                 setShowRoadmap(false);
                 setSkillInput("");
                 setRoadmap([]);
+                localStorage.removeItem('userRoadmap');
+                localStorage.removeItem('skillAssessmentCompleted');
               }}
               className="mr-4"
             >
@@ -240,7 +259,7 @@ const SkillAssessment = () => {
               onClick={() => navigate('/')}
               className="bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90"
             >
-              Start Learning
+              Go to Dashboard
             </Button>
           </div>
         </div>

@@ -74,7 +74,7 @@ const Login = () => {
       name: 'Guest User',
       loginTime: new Date().toISOString()
     }));
-    navigate('/');
+    navigate('/skill-assessment');
   };
 
   return (

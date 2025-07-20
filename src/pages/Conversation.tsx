@@ -4,6 +4,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/app-sidebar";
 import ConversationContainer from '@/components/conversation/ConversationContainer';
 import { ConversationProvider, useConversation } from '@/contexts/ConversationContext';
+import RoadmapBackButton from '@/components/layout/RoadmapBackButton';
 
 // Intermediate component to access the context
 const ConversationContent = () => {
@@ -61,6 +62,7 @@ const ConversationAI = () => {
     <SidebarProvider>
       <ConversationProvider>
         <div className="flex min-h-screen bg-background w-full">
+          <RoadmapBackButton />
           <AppSidebar />
           <ConversationContent />
         </div>

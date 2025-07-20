@@ -26,6 +26,7 @@ import TeacherRegister from "./pages/TeacherRegister";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import StudentDashboard from "./pages/StudentDashboard";
 import QuickQuiz from "./pages/QuickQuiz";
+import SkillAssessment from "./pages/SkillAssessment";
 
 const queryClient = new QueryClient();
 
@@ -142,6 +143,11 @@ const App = () => (
               <Route path="/quick-quiz" element={
                 <ProtectedRoute>
                   <QuickQuiz />
+                </ProtectedRoute>
+              } />
+              <Route path="/skill-assessment" element={
+                <ProtectedRoute>
+                  <SkillAssessment />
                 </ProtectedRoute>
               } />
               <Route path="*" element={<NotFound />} />

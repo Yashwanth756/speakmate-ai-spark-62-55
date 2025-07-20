@@ -26,7 +26,7 @@ const Login = () => {
       if (userSession) {
         const user = JSON.parse(userSession);
         if (user.role === 'student') {
-          navigate('/student/dashboard');
+          navigate('/skill-assessment');
         } else if (user.role === 'teacher') {
           navigate('/teacher/dashboard');
         } else {
@@ -48,7 +48,7 @@ const Login = () => {
           title: "Welcome Back!",
           description: "Successfully logged in to your account.",
         });
-        navigate('/student/dashboard');
+        navigate('/skill-assessment');
       } else {
         toast({
           title: "Login Failed",
@@ -177,15 +177,6 @@ const Login = () => {
                   className="text-primary hover:text-primary/80 font-semibold transition-colors"
                 >
                   Create an account
-                </Link>
-              </div>
-              <div className="text-center">
-                <span className="text-muted-foreground">Are you a teacher? </span>
-                <Link
-                  to="/teacher/login"
-                  className="text-accent hover:text-accent/80 font-semibold transition-colors"
-                >
-                  Teacher Login
                 </Link>
               </div>
             </CardFooter>
